@@ -1,0 +1,11 @@
+numpy
+scipy
+pandas
+matplotlib
+seaborn
+tqdm
+astropy
+corner
+emcee
+jax
+h5py
