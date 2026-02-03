@@ -1,4 +1,4 @@
-from .utils import initialize, visualize, io
+from .utils import initialize, visualize
 from . import distributions
 from .distributions import priors, selection
 from . import samplers, simulators, solvers
@@ -8,12 +8,10 @@ import sys
 # Make these accessible as proper top-level submodules
 sys.modules[__name__ + ".initialize"] = initialize
 sys.modules[__name__ + ".visualize"] = visualize
-sys.modules[__name__ + ".io"] = io
 
 __all__ = [
     'initialize',
     'visualize',
-    'io',
     'distributions',
     'priors',
     'selection',

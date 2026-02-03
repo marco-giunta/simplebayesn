@@ -1,11 +1,9 @@
 from . import (
     emcee,
-    jax,
-    numpy
+    gibbs
 )
 
 __all__ = [
     'emcee',
-    'jax',
-    'numpy'
+    'gibbs'
 ]

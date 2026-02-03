@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
 from corner import corner
 import seaborn as sns
-from ..utils.data import GibbsChainData, GibbsChainDataCompact
+from ..utils.data import GibbsChainData
 from matplotlib.animation import FuncAnimation
 
 PARAMS_LATEX_MAP = {
@@ -20,7 +20,7 @@ PARAMS_LATEX_MAP = {
     'tau':r'$\tau$'
 }
 
-def posterior_cornerplot(chain: GibbsChainData | GibbsChainDataCompact,
+def posterior_cornerplot(chain: GibbsChainData,
                          start_idx: int = 0, stop_idx: int = None,
                          title: str = None, levels = (0.393, 0.864),
                          show_joint_mean: bool = True,
@@ -85,7 +85,7 @@ def posterior_cornerplot(chain: GibbsChainData | GibbsChainDataCompact,
 
     return fig
 
-def trace_plot(chain: GibbsChainData | GibbsChainDataCompact, param: str,
+def trace_plot(chain: GibbsChainData, param: str,
                start_idx: int = 0, stop_idx: int = None, title: str = None,
                show_mean: bool = True, show_std: bool = True,
                figsize = None, show_legend: bool = True,
@@ -119,7 +119,7 @@ def trace_plot(chain: GibbsChainData | GibbsChainDataCompact, param: str,
 
     return ax
 
-def marginal_posterior(chain: GibbsChainData | GibbsChainDataCompact, param: str,
+def marginal_posterior(chain: GibbsChainData, param: str,
                        start_idx: int = 0, stop_idx: int = None,
                        title: str = None,
                        kind: str = 'kde',
@@ -162,7 +162,7 @@ def marginal_posterior(chain: GibbsChainData | GibbsChainDataCompact, param: str
 
     return ax
 
-def intrinsic_magnitude_color_distribution_animation(chain_data: GibbsChainData | GibbsChainDataCompact,
+def intrinsic_magnitude_color_distribution_animation(chain_data: GibbsChainData,
                                                      start_idx: int = 0, stop_idx: int = None,
                                                      title: str = None,
                                                      step_stride: int = 500, color_dust: bool = False):
@@ -240,7 +240,7 @@ def intrinsic_magnitude_color_distribution_animation(chain_data: GibbsChainData 
     return anim, fig
 
 def extinguished_magnitude_color_distribution_animation(
-    chain_data: GibbsChainData | GibbsChainDataCompact,
+    chain_data: GibbsChainData,
     start_idx: int = 0, stop_idx: int = None,
     title: str = None,
     step_stride: int = 500, color_dust: bool = False
