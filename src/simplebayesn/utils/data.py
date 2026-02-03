@@ -1,6 +1,8 @@
 import numpy as np
 from dataclasses import dataclass, field
 from typing import NamedTuple
+import h5py
+from pathlib import Path
 
 class SaltDataCompact(NamedTuple):
     num_samples: int
@@ -185,168 +187,66 @@ class SaltData:
 
 @dataclass
 class GibbsChainData:
-    num_chain_samples: int
-    num_data_samples: int
-    global_params: dict[str, np.ndarray] = field(init=False)
-    latent_params: dict[str, np.ndarray] = field(init=False)
+    num_chain_samples: int | None = None
+    num_data_samples: int | None = None
+    # globals
+    tau: np.ndarray | None = None
+    RB: np.ndarray | None = None
+    x0: np.ndarray | None = None
+    sigmax2: np.ndarray | None = None
+    c0_int: np.ndarray | None = None
+    alphac_int: np.ndarray | None = None
+    sigmac_int2: np.ndarray | None = None
+    M0_int: np.ndarray | None = None
+    alpha: np.ndarray | None = None
+    beta_int: np.ndarray | None = None
+    sigma_int2: np.ndarray | None = None
+    # latents
+    m_app: np.ndarray | None = None
+    c_app: np.ndarray | None = None
+    x: np.ndarray | None = None
+    E: np.ndarray | None = None
+    dist_mod: np.ndarray | None = None
+    global_params_names = ['tau', 'RB', 'x0', 'sigmax2',
+                           'c0_int', 'alphac_int', 'sigmac_int2',
+                           'M0_int', 'alpha', 'beta_int', 'sigma_int2']
+    latent_params_names = ['m_app', 'c_app', 'x', 'E', 'dist_mod']
 
     def __post_init__(self):
-        num_chain_samples = self.num_chain_samples
-        num_data_samples = self.num_data_samples
-        self.global_params = {
-            'tau': np.zeros(num_chain_samples, dtype=float),
-            'RB': np.zeros(num_chain_samples, dtype=float),
-            'x0': np.zeros(num_chain_samples, dtype=float),
-            'sigmax2': np.zeros(num_chain_samples, dtype=float),
-            'c0_int': np.zeros(num_chain_samples, dtype=float),
-            'alphac_int': np.zeros(num_chain_samples, dtype=float),
-            'sigmac_int2': np.zeros(num_chain_samples, dtype=float),
-            'M0_int': np.zeros(num_chain_samples, dtype=float),
-            'alpha': np.zeros(num_chain_samples, dtype=float),
-            'beta_int': np.zeros(num_chain_samples, dtype=float),
-            'sigma_int2': np.zeros(num_chain_samples, dtype=float),
-        }
-        self.latent_params = {
-            'm_app': np.zeros((num_chain_samples, num_data_samples), dtype = float),
-            'c_app': np.zeros((num_chain_samples, num_data_samples), dtype = float),
-            'x': np.zeros((num_chain_samples, num_data_samples), dtype = float),
-            'E': np.zeros((num_chain_samples, num_data_samples), dtype = float),
-            'dist_mod': np.zeros((num_chain_samples, num_data_samples), dtype = float)
-        }
+        if self.num_chain_samples is not None and self.num_data_samples is not None:
+            for gp in self.global_params_names:
+                if getattr(self, gp) is None:
+                    setattr(self, gp, np.zeros(self.num_chain_samples, dtype=float))
 
-    def set_latent(self, t: int, new_vals: dict[str, np.ndarray]):
-        for key in new_vals.keys():
-            self.latent_params[key][t] = new_vals[key]
-    def set_global(self, t: int, new_vals: dict[str, np.ndarray]):
-        for key in new_vals.keys():
-            self.global_params[key][t] = new_vals[key]
+            for lp in self.latent_params_names:
+                if getattr(self, lp) is None:
+                    setattr(self, lp, np.zeros((self.num_chain_samples, self.num_data_samples), dtype = float))
+
+    def __setitem__(self, t: int, new_vals: dict[str, np.ndarray]):
+        for param in self.global_params_names + self.latent_params_names:
+            getattr(self, param)[t] = new_vals[param]
 
     def __getitem__(self, t):
         return {
-            'latent_params': {k:self.latent_params[k][t] for k in self.latent_params.keys()},
-            'global_params': {k:self.global_params[k][t] for k in self.global_params.keys()},
+            'latent_params': {lp: getattr(self, lp)[t] for lp in self.latent_params_names},
+            'global_params': {gp: getattr(self, gp)[t] for gp in self.global_params_names}
         }
 
     def get_samples(self):
         return {
-            'latent_params': self.latent_params,
-            'global_params': self.global_params
+            'latent_params': {lp: getattr(self, lp) for lp in self.latent_params_names},
+            'global_params': {gp: getattr(self, gp) for gp in self.global_params_names}
         }
 
-    @property
-    def m_app(self):
-        return self.latent_params['m_app']
-    @property
-    def c_app(self):
-        return self.latent_params['c_app']
-    @property
-    def x(self):
-        return self.latent_params['x']
-    @property
-    def E(self):
-        return self.latent_params['E']
-    @property
-    def dist_mod(self):
-        return self.latent_params['dist_mod']
-    
-    @property
-    def tau(self):
-        return self.global_params['tau']
-    @property
-    def RB(self):
-        return self.global_params['RB']
-    @property
-    def x0(self):
-        return self.global_params['x0']
-    @property
-    def sigmax2(self):
-        return self.global_params['sigmax2']
-    @property
-    def c0_int(self):
-        return self.global_params['c0_int']
-    @property
-    def alphac_int(self):
-        return self.global_params['alphac_int']
-    @property
-    def sigmac_int2(self):
-        return self.global_params['sigmac_int2']
-    @property
-    def M0_int(self):
-        return self.global_params['M0_int']
-    @property
-    def alpha(self):
-        return self.global_params['alpha']
-    @property
-    def beta_int(self):
-        return self.global_params['beta_int']
-    @property
-    def sigma_int2(self):
-        return self.global_params['sigma_int2']
+    def load(self, path):
+        with h5py.File(Path(path), 'r') as f:
+            for param in self.latent_params_names + self.global_params_names:
+                setattr(self, param, f[param][:])
 
-class GibbsChainDataCompact(NamedTuple):
-    M0_int: np.ndarray
-    alpha: np.ndarray
-    beta_int: np.ndarray
-    sigma_int2: np.ndarray
-    c0_int: np.ndarray
-    alphac_int: np.ndarray
-    sigmac_int2: np.ndarray
-    x0: np.ndarray
-    sigmax2: np.ndarray
-    tau: np.ndarray
-    RB: np.ndarray
-    m_app: np.ndarray
-    c_app: np.ndarray
-    x: np.ndarray
-    E: np.ndarray
-    dist_mod: np.ndarray
+        self.num_chain_samples, self.num_data_samples = self.x.shape
+        return self
 
-    def __getitem__(self, t):
-        return {
-            'global_params': {
-                'M0_int':self.M0_int[t],
-                'alpha':self.alpha[t],
-                'beta_int':self.beta_int[t],
-                'sigma_int2':self.sigma_int2[t],
-                'c0_int':self.c0_int[t],
-                'alphac_int':self.alphac_int[t],
-                'sigmac_int2':self.sigmac_int2[t],
-                'x0':self.x0[t],
-                'sigmax2':self.sigmax2[t],
-                'tau':self.tau[t],
-                'RB':self.RB[t]
-            },
-            'latent_params': {
-                'm_app':self.m_app[t],
-                'c_app':self.c_app[t],
-                'x':self.x[t],
-                'E':self.E[t],
-                'dist_mod':self.dist_mod[t]
-            }
-        }
-    def get_samples(self):
-        return {
-            'global_params': {
-                'M0_int':self.M0_int,
-                'alpha':self.alpha,
-                'beta_int':self.beta_int,
-                'sigma_int2':self.sigma_int2,
-                'c0_int':self.c0_int,
-                'alphac_int':self.alphac_int,
-                'sigmac_int2':self.sigmac_int2,
-                'x0':self.x0,
-                'sigmax2':self.sigmax2,
-                'tau':self.tau,
-                'RB':self.RB
-            },
-            'latent_params': {
-                'm_app':self.m_app,
-                'c_app':self.c_app,
-                'x':self.x,
-                'E':self.E,
-                'dist_mod':self.dist_mod
-            }
-        }
-    @property
-    def num_chain_samples(self):
-        return len(self.tau)
+    def save(self, path: str | Path):
+        with h5py.File(Path(path), 'w') as f:
+            for param in self.latent_params_names + self.global_params_names:
+                f.create_dataset(param, data = getattr(self, param))

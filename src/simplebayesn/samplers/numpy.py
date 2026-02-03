@@ -180,59 +180,17 @@ def sample_global_params(m_app, c_app, x, E, dist_mod,
         'sigma_int2':sigma_int2,
     }
 
-# def gibbs_sampler(initial_values, priors_params,
-#                   observed_data: SaltData, num_iter,
-#                   seed: int = None):
-#     rng = np.random.default_rng(seed)
-#     latent_params = {}
-#     global_params = {}
-#     num_iter += 1
-#     num_samples = observed_data.num_samples
-
-#     for key, value in initial_values['latent_params'].items():
-#         latent_params[key] = np.zeros((num_iter, num_samples), dtype = float)
-#         latent_params[key][0] = value
-
-#     for key, value in initial_values['global_params'].items():
-#         global_params[key] = np.zeros(num_iter, dtype = float)
-#         global_params[key][0] = value
-
-#     lp_current_vals = initial_values['latent_params']
-#     gp_current_vals = initial_values['global_params']
-
-#     for t in trange(1, num_iter):
-#         lp_current_vals = batch_sample_latent_params(
-#             **lp_current_vals,
-#             observed_data = observed_data,
-#             global_params = gp_current_vals,
-#             rng = rng
-#         )
-#         for key in lp_current_vals.keys():
-#             latent_params[key][t] = lp_current_vals[key]
-        
-#         gp_current_vals = sample_global_params(
-#             **lp_current_vals,
-#             global_params = gp_current_vals,
-#             priors_params = priors_params,
-#             rng = rng
-#         )
-#         for key in gp_current_vals.keys():
-#             global_params[key][t] = gp_current_vals[key]
-
-#     return dict(latent_params=latent_params, global_params=global_params)
-
 def gibbs_sampler(initial_values, priors_params,
                   observed_data: SaltData, num_iter,
                   seed: int = None):
     rng = np.random.default_rng(seed)
     num_iter += 1
-    
+
     gibbs_chain = GibbsChainData(num_iter, observed_data.num_samples)
     lp_current_vals = initial_values['latent_params']
     gp_current_vals = initial_values['global_params']
 
-    gibbs_chain.set_latent(0, lp_current_vals)
-    gibbs_chain.set_global(0, gp_current_vals)
+    gibbs_chain[0] = {**lp_current_vals, **gp_current_vals}
 
     for t in trange(1, num_iter):
         lp_current_vals = batch_sample_latent_params(
@@ -241,14 +199,14 @@ def gibbs_sampler(initial_values, priors_params,
             global_params = gp_current_vals,
             rng = rng
         )
-        gibbs_chain.set_latent(t, lp_current_vals)
-                
+
         gp_current_vals = sample_global_params(
             **lp_current_vals,
             global_params = gp_current_vals,
             priors_params = priors_params,
             rng = rng
         )
-        gibbs_chain.set_global(t, gp_current_vals)
+
+        gibbs_chain[t] = {**lp_current_vals, **gp_current_vals}
 
     return gibbs_chain
