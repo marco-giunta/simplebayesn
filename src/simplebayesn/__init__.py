@@ -2,7 +2,6 @@ from .utils import initialize, visualize, io
 from . import distributions
 from .distributions import priors, selection
 from . import samplers, simulators, solvers
-from .distributions.likelihood import marginal_loglikelihood
 from .utils.preprocessing import preprocess_data
 import sys
 
@@ -21,7 +20,6 @@ __all__ = [
     'samplers',
     'simulators',
     'solvers',
-    'marginal_loglikelihood',
     'preprocess_data',
 ]
 
