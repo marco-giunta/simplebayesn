@@ -3,6 +3,8 @@ from dataclasses import dataclass, field
 from typing import NamedTuple
 import h5py
 from pathlib import Path
+from emcee.backends import HDFBackend
+from .param_array import from_param_array
 
 class SaltDataCompact(NamedTuple):
     num_samples: int
@@ -238,12 +240,19 @@ class GibbsChainData:
             'global_params': {gp: getattr(self, gp) for gp in self.global_params_names}
         }
 
-    def load(self, path):
-        with h5py.File(Path(path), 'r') as f:
-            for param in self.latent_params_names + self.global_params_names:
-                setattr(self, param, f[param][:])
+    def load(self, path: str | Path, marginal: bool = False):
+        if marginal:
+            reader = HDFBackend(Path(path), read_only = True)
+            global_params = from_param_array(reader.get_chain(flat = True).T)
+            for param in self.global_params_names:
+                setattr(self, param, global_params[param])
+            self.num_chain_samples = len(global_params['tau'])
+        else:
+            with h5py.File(Path(path), 'r') as f:
+                for param in self.latent_params_names + self.global_params_names:
+                    setattr(self, param, f[param][:])
+            self.num_chain_samples, self.num_data_samples = self.x.shape
 
-        self.num_chain_samples, self.num_data_samples = self.x.shape
         return self
 
     def save(self, path: str | Path):
