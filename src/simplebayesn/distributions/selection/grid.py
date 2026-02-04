@@ -1,3 +1,4 @@
+import numpy as np
 import jax
 import jax.numpy as jnp
 from jax.scipy.special import log_ndtr, logsumexp
@@ -5,72 +6,95 @@ from functools import partial
 from ...utils.data import SaltData, SaltDataCompact
 from ...utils.intrinsic import get_mean_int, get_cov_int
 
-def preproc_args(observed_data: SaltData, global_params):
-    return {
-        'observed_data_dist_mod':jnp.asarray(observed_data.dist_mod),
-        'observed_data_sigma_mu_z2':jnp.asarray(observed_data.sigma_mu_z2),
-        'observed_data_cov':jnp.asarray(observed_data.cov),
-        'observed_data_num_samples':observed_data.num_samples,
-        'tau':global_params['tau'],
-        'RB':global_params['RB'],
-        'x0':global_params['x0'],
-        'sigmax2':global_params['sigmax2'],
-        'c0_int':global_params['c0_int'],
-        'alphac_int':global_params['alphac_int'],
-        'sigmac_int2':global_params['sigmac_int2'],
-        'M0_int':global_params['M0_int'],
-        'alpha':global_params['alpha'],
-        'beta_int':global_params['beta_int'],
-        'sigma_int2':global_params['sigma_int2'],
-    }
+def log_selection_probability_grid(global_params: dict,
+                                   observed_data: SaltData | SaltDataCompact,
+                                   mlim: tuple[float], clim: tuple[float], xlim: tuple[float],
+                                   Nm: int, Nc: int, Nx: int):
+    mean_int = get_mean_int(global_params).flatten()
+    cov_int = get_cov_int(global_params)
+    e1 = np.array([1, 0, 0])
 
-@partial(jax.jit, static_argnames=[
-    #'observed_data_dist_mod', 'observed_data_sigma_mu_z2', 'observed_data_cov',
-    'observed_data_num_samples',
-    'clim', 'xlim',
-    'num_sim_per_sample', 'seed',
-])
-def lsp_mc_vec_jax(tau, RB,
-                   x0, sigmax2,
-                   c0_int, alphac_int, sigmac_int2,
-                   M0_int, alpha, beta_int, sigma_int2,
-                   clim, xlim,
-                   observed_data_dist_mod, observed_data_sigma_mu_z2, observed_data_cov,
-                   observed_data_num_samples,
-                   num_sim_per_sample, seed=0):
-    
-    key_x, key_c, key_M, key_E, key_dist_mod, key_noise = jax.random.split(jax.random.key(seed), 6)
-    shape_sim = (observed_data_num_samples, num_sim_per_sample)
-    x = x0 + jnp.sqrt(sigmax2) * jax.random.normal(key_x, shape_sim)
-    c_int = c0_int + alphac_int * x + jnp.sqrt(sigmac_int2) * jax.random.normal(key_c, shape_sim)
-    M_int = M0_int + alpha * x + beta_int * c_int + sigma_int2 * jax.random.normal(key_M, shape_sim)
-
-    E = tau * jax.random.exponential(key_E, shape_sim)
-    M_ext = M_int + RB * E
-    c_app = c_int + E
-
-    dist_mod = observed_data_dist_mod[:, None] + jnp.sqrt(observed_data_sigma_mu_z2)[:, None] * jax.random.normal(key_dist_mod, shape_sim)
-    m_app = M_ext + dist_mod
-
-    mcx = (
-        jnp.stack([m_app, c_app, x], axis=-1) +
-        jnp.einsum('nij,nsj->nsi', jnp.linalg.cholesky(observed_data_cov), jax.random.normal(key_noise, (*shape_sim, 3)))
+    Sigma_inv = np.linalg.inv(
+        cov_int + observed_data.cov +
+        observed_data.sigma_mu_z2[:, np.newaxis, np.newaxis] * np.outer(e1, e1)
     )
-    c_app_obs = mcx[..., 1]
-    x_obs = mcx[..., 2]
-    
-    p = (
-        (c_app_obs > clim[0]) &
-        (c_app_obs < clim[1]) &
-        (x_obs > xlim[0]) &
-        (x_obs < xlim[1])
-    ).mean(axis=1)
 
-    
-    return jnp.sum(jnp.log(p))
+    eE = np.array([global_params['RB'], 1, 0])
+    sE = 1 / np.sqrt(
+        np.einsum('i,nij,j->n', eE, Sigma_inv, eE)
+    ) # (N_SN, )
+    sE_exp = np.expand_dims(sE, axis=(1, 2, 3))
+    del sE
 
-def preprocess_arguments_log_selection_probability(global_params: dict,
-                                                   observed_data: SaltData | SaltDataCompact):
+    # np.array(np.meshgrid(...)) == np.stack(np.meshgrid(...), axis=0)
+    N_SN = observed_data.num_samples
+    volume_element = (np.diff(mlim) * np.diff(clim) * np.diff(xlim) / ((Nm - 1) * (Nc - 1) * (Nx - 1)))[0]
+
+    d = np.repeat(
+        np.stack(
+            np.meshgrid(
+                np.linspace(*mlim, num=Nm),
+                np.linspace(*clim, num=Nc),
+                np.linspace(*xlim, num=Nx)
+            ),
+            axis=0
+        )[np.newaxis, ...],
+        repeats=N_SN, axis=0
+    ) # (N_SN, 3, Nm, Nc, Nx)
+
+    dm = np.zeros_like(d)
+    dm[:, 0] = observed_data.dist_mod[:, np.newaxis, np.newaxis, np.newaxis]
+    # observed_data.dist_mod[:, np.newaxis, np.newaxis, np.newaxis] == np.expand_dims(observed_data.dist_mod, axis=(1, 2, 3))
+    mi = mean_int[np.newaxis, :, np.newaxis, np.newaxis, np.newaxis]
+    # mean_int[np.newaxis, :, np.newaxis, np.newaxis, np.newaxis] == np.expand_dims(mean_int, axis=(0, 2, 3))
+
+    y = d - mi - dm # (N_SN, 3, Nm, Nc, Nx)
+    del d, mi, dm
+
+    E_hat = sE_exp ** 2 * \
+          np.einsum('i,nij,njklm->nklm', eE, Sigma_inv, y)
+    # (N_SN, Nm, Nc, Nx)
+
+    log_prefactor = np.log(sE_exp * np.sqrt(2 * np.pi))
+
+    EE = np.zeros_like(y)
+    EE[:, 0] = global_params['RB'] * E_hat
+    EE[:, 1] = E_hat
+    v = y - EE
+    del y, EE
+    # log_norm_factor = -0.5 * (np.einsum(
+    #     'niklm,nij,njklm->nklm',
+    #     v, Sigma_inv, v
+    # ) + np.log(np.expand_dims(
+    #     ((2*np.pi)**3 / np.linalg.det(Sigma_inv)),
+    #     axis=(1, 2, 3)
+    # ))) # (N_SN, Nm, Nc, Nx)
+    log_norm_factor = -0.5 * (np.einsum('niklm,nij,njklm->nklm', v, Sigma_inv, v)
+                              + np.log(np.expand_dims(((2 * np.pi) ** 3 / np.linalg.det(Sigma_inv)), axis=(1, 2, 3))))
+    del v
+
+    log_exp_factor = -np.log(global_params['tau']) + (
+        0.5 * \
+            (sE_exp / global_params['tau']) ** 2 \
+        - E_hat/global_params['tau']
+    )
+    log_cdf_factor = log_ndtr(
+        E_hat / sE_exp \
+        - sE_exp / global_params['tau']
+    )
+    del E_hat, sE_exp
+
+    ll_grid = log_prefactor + log_norm_factor + log_exp_factor + log_cdf_factor
+    del log_prefactor, log_norm_factor, log_exp_factor, log_cdf_factor
+    
+    max_ll = ll_grid.max(axis=(1, 2, 3))
+    # integrals = (np.exp(ll_grid - max_ll[:, None, None, None]).sum(axis=(1, 2, 3)) * volume_element) * np.exp(max_ll)
+    # return np.prod(integrals)
+    log_integrals = logsumexp(ll_grid - max_ll[:, None, None, None], axis=(1, 2, 3)) + np.log(volume_element) + max_ll
+    return log_integrals.sum()
+
+def preprocess_arguments_log_selection_probability_grid_jax(global_params: dict,
+                                                            observed_data: SaltData | SaltDataCompact):
     return {
         'RB': global_params['RB'],
         'tau': global_params['tau'],
@@ -102,11 +126,11 @@ def logsumexp_stable(a: jax.Array, b: jax.Array = None, axis = None):
     'mlim', 'clim', 'xlim', 'Nm', 'Nc', 'Nx',
     'observed_data_num_samples'
 ])
-def log_selection_probability_2(mlim: tuple[float], clim: tuple[float], xlim: tuple[float],
-                                Nm: int, Nc: int, Nx: int,
-                                tau, RB, mean_int, cov_int,
-                                observed_data_cov, observed_data_sigma_mu_z2,
-                                observed_data_num_samples, observed_data_dist_mod):
+def log_selection_probability_grid_jax_2(mlim: tuple[float], clim: tuple[float], xlim: tuple[float],
+                                         Nm: int, Nc: int, Nx: int,
+                                         tau, RB, mean_int, cov_int,
+                                         observed_data_cov, observed_data_sigma_mu_z2,
+                                         observed_data_num_samples, observed_data_dist_mod):
     mean_int = mean_int.flatten()
     e1 = jnp.array([1, 0, 0])
     eE = jnp.array([RB, 1, 0])
@@ -176,11 +200,11 @@ def log_selection_probability_2(mlim: tuple[float], clim: tuple[float], xlim: tu
     'mlim', 'clim', 'xlim', 'Nm', 'Nc', 'Nx',
     'observed_data_num_samples'
 ])
-def log_selection_probability_3(mlim: tuple[float], clim: tuple[float], xlim: tuple[float],
-                                Nm: int, Nc: int, Nx: int,
-                                tau, RB, mean_int, cov_int,
-                                observed_data_cov, observed_data_sigma_mu_z2,
-                                observed_data_num_samples, observed_data_dist_mod):
+def log_selection_probability_grid_jax_3(mlim: tuple[float], clim: tuple[float], xlim: tuple[float],
+                                         Nm: int, Nc: int, Nx: int,
+                                         tau, RB, mean_int, cov_int,
+                                         observed_data_cov, observed_data_sigma_mu_z2,
+                                         observed_data_num_samples, observed_data_dist_mod):
     mean_int = mean_int.flatten()
     e1 = jnp.array([1, 0, 0])
     eE = jnp.array([RB, 1, 0])
@@ -245,11 +269,11 @@ def log_selection_probability_3(mlim: tuple[float], clim: tuple[float], xlim: tu
     'mlim', 'clim', 'xlim', 'Nm', 'Nc', 'Nx',
     'observed_data_num_samples'
 ])
-def log_selection_probability_4(mlim: tuple[float], clim: tuple[float], xlim: tuple[float],
-                                Nm: int, Nc: int, Nx: int,
-                                tau, RB, mean_int, cov_int,
-                                observed_data_cov, observed_data_sigma_mu_z2,
-                                observed_data_num_samples, observed_data_dist_mod):
+def log_selection_probability_grid_jax_4(mlim: tuple[float], clim: tuple[float], xlim: tuple[float],
+                                         Nm: int, Nc: int, Nx: int,
+                                         tau, RB, mean_int, cov_int,
+                                         observed_data_cov, observed_data_sigma_mu_z2,
+                                         observed_data_num_samples, observed_data_dist_mod):
     mean_int = mean_int.flatten()
     e1 = jnp.array([1, 0, 0])
 
@@ -326,12 +350,12 @@ def log_selection_probability_4(mlim: tuple[float], clim: tuple[float], xlim: tu
     'mlim', 'clim', 'xlim', 'Nm', 'Nc', 'Nx',
     'observed_data_num_samples', 'batch_size'
 ])
-def log_selection_probability_4b(mlim: tuple[float], clim: tuple[float], xlim: tuple[float],
-                                 Nm: int, Nc: int, Nx: int,
-                                 tau, RB, mean_int, cov_int,
-                                 observed_data_cov, observed_data_sigma_mu_z2,
-                                 observed_data_num_samples, observed_data_dist_mod,
-                                 batch_size: int):
+def log_selection_probability_grid_jax_4b(mlim: tuple[float], clim: tuple[float], xlim: tuple[float],
+                                          Nm: int, Nc: int, Nx: int,
+                                          tau, RB, mean_int, cov_int,
+                                          observed_data_cov, observed_data_sigma_mu_z2,
+                                          observed_data_num_samples, observed_data_dist_mod,
+                                          batch_size: int):
     mean_int = mean_int.flatten()
     mean_int = jnp.expand_dims(mean_int, axis=(0, 2, 3, 4))
     e1 = jnp.array([1, 0, 0])

@@ -1,6 +1,6 @@
-from . import jax, numpy
+from . import grid, mc
 
 __all__ = [
-    'jax',
-    'numpy'
+    'grid',
+    'mc'
 ]
