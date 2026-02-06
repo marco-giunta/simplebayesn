@@ -20,9 +20,9 @@ class SaltData:
     data_params_names = ['m_app', 'c_app', 'x', 'z', 'sigma_z', 'dist_mod', 'sigma_mu_z2']
 
     def __post_init__(self):
-        object.__setattr__(self, 'data', {
-            param:np.asarray(getattr(self, param)) for param in self.data_params_names # in case pd.Series objects are passed
-        })
+        for param in self.data_params_names: # in case pd.Series objects are passed
+            object.__setattr__(self, param, np.asarray(getattr(self, param)))
+            
         # self.inv_cov = np.linalg.inv(self.cov)
         object.__setattr__(self, 'inv_cov', np.linalg.inv(self.cov))
         object.__setattr__(self, 'num_samples', len(self.cov))
