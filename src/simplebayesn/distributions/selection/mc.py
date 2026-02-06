@@ -9,6 +9,7 @@ def preprocess_arguments_log_selection_probability_mc_jax(observed_data: SaltDat
         'observed_data_sigma_mu_z2':jnp.asarray(observed_data.sigma_mu_z2),
         'observed_data_cov':jnp.asarray(observed_data.cov),
         'observed_data_num_samples':observed_data.num_samples,
+        'observed_data_z':jnp.asarray(observed_data.z),
         'tau':global_params['tau'],
         'RB':global_params['RB'],
         'x0':global_params['x0'],
@@ -27,6 +28,7 @@ def preprocess_arguments_log_selection_probability_mc_jax(observed_data: SaltDat
     'observed_data_num_samples',
     'clim', 'xlim',
     'num_sim_per_sample', 'seed',
+    'selection_function'
 ])
 def log_selection_probability_mc_jax(tau, RB,
                                      x0, sigmax2,
@@ -34,8 +36,9 @@ def log_selection_probability_mc_jax(tau, RB,
                                      M0_int, alpha, beta_int, sigma_int2,
                                      clim, xlim,
                                      observed_data_dist_mod, observed_data_sigma_mu_z2, observed_data_cov,
-                                     observed_data_num_samples,
-                                     num_sim_per_sample, seed=0):
+                                     observed_data_num_samples, observed_data_z,
+                                     num_sim_per_sample, selection_function = None,
+                                     seed=0):
     
     key_x, key_c, key_M, key_E, key_dist_mod, key_noise = jax.random.split(jax.random.key(seed), 6)
     shape_sim = (observed_data_num_samples, num_sim_per_sample)
@@ -57,12 +60,15 @@ def log_selection_probability_mc_jax(tau, RB,
     c_app_obs = mcx[..., 1]
     x_obs = mcx[..., 2]
     
-    p = (
-        (c_app_obs > clim[0]) &
-        (c_app_obs < clim[1]) &
-        (x_obs > xlim[0]) &
-        (x_obs < xlim[1])
-    ).mean(axis=1)
+    if selection_function is None:
+        p = (
+            (c_app_obs > clim[0]) &
+            (c_app_obs < clim[1]) &
+            (x_obs > xlim[0]) &
+            (x_obs < xlim[1])
+        ).mean(axis=1)
+    else:
+        p = selection_function(c_app_obs, observed_data_z[:, None]).mean(axis=1)
 
     
     return jnp.sum(jnp.log(p))

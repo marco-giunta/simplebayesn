@@ -1,6 +1,7 @@
-from . import grid, mc
+from . import grid, mc, kde
 
 __all__ = [
     'grid',
-    'mc'
+    'mc',
+    'kde'
 ]
