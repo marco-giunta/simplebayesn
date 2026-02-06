@@ -229,10 +229,16 @@ class GibbsChainData:
             getattr(self, param)[t] = new_vals[param]
 
     def __getitem__(self, t):
-        return {
-            'latent_params': {lp: getattr(self, lp)[t] for lp in self.latent_params_names},
-            'global_params': {gp: getattr(self, gp)[t] for gp in self.global_params_names}
-        }
+        if all([getattr(self, lp) is not None for lp in self.latent_params_names]):
+            return {
+                'latent_params': {lp: getattr(self, lp)[t] for lp in self.latent_params_names},
+                'global_params': {gp: getattr(self, gp)[t] for gp in self.global_params_names}
+            }
+        else:
+            return {
+                'latent_params': {lp: None for lp in self.latent_params_names},
+                'global_params': {gp: getattr(self, gp)[t] for gp in self.global_params_names}
+            }
 
     def get_samples(self):
         return {
