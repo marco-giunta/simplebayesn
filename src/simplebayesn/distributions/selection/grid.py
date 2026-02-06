@@ -3,11 +3,11 @@ import jax
 import jax.numpy as jnp
 from jax.scipy.special import log_ndtr, logsumexp
 from functools import partial
-from ...utils.data import SaltData, SaltDataCompact
+from ...utils.data import SaltData
 from ...utils.intrinsic import get_mean_int, get_cov_int
 
 def log_selection_probability_grid(global_params: dict,
-                                   observed_data: SaltData | SaltDataCompact,
+                                   observed_data: SaltData,
                                    mlim: tuple[float], clim: tuple[float], xlim: tuple[float],
                                    Nm: int, Nc: int, Nx: int):
     mean_int = get_mean_int(global_params).flatten()
@@ -94,7 +94,7 @@ def log_selection_probability_grid(global_params: dict,
     return log_integrals.sum()
 
 def preprocess_arguments_log_selection_probability_grid_jax(global_params: dict,
-                                                            observed_data: SaltData | SaltDataCompact):
+                                                            observed_data: SaltData):
     return {
         'RB': global_params['RB'],
         'tau': global_params['tau'],

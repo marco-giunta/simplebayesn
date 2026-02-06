@@ -156,6 +156,6 @@ def preprocess_data(data: pd.DataFrame, cosmo = Planck18, x0_to_mB_offset: float
 
     
     return SaltData(**{
-        'data':observed_data_arr,
+        **observed_data_arr,
         'cov':observed_data_cov_arr
     })

@@ -1,12 +1,12 @@
 import jax
 import jax.numpy as jnp
 from functools import partial
-from ...utils.data import SaltData, SaltDataCompact
+from ...utils.data import SaltData
 import numpy as np
 from scipy.stats import gaussian_kde
 from scipy.integrate import dblquad
 
-def preprocess_arguments_log_selection_probability_mc_jax(observed_data: SaltData | SaltDataCompact, global_params):
+def preprocess_arguments_log_selection_probability_mc_jax(observed_data: SaltData, global_params):
     return {
         'observed_data_dist_mod':jnp.asarray(observed_data.dist_mod),
         'observed_data_sigma_mu_z2':jnp.asarray(observed_data.sigma_mu_z2),

@@ -8,7 +8,7 @@ from ..utils.param_array import (
     to_param_array,
     from_param_array
 )
-from ..utils.data import SaltData, SaltDataCompact
+from ..utils.data import SaltData
 from dataclasses import dataclass
 
 @dataclass(frozen=True)
@@ -41,7 +41,7 @@ def get_default_maximum_likelihood_bounds(eps = 1e-6):
         'RB':(2, 5)
     }
 
-def NLL(x: np.ndarray, observed_data: SaltData | SaltDataCompact):
+def NLL(x: np.ndarray, observed_data: SaltData):
     return -marginal_loglikelihood(from_param_array(x), observed_data)
 
 def compute_hessian(fun, x0, epsilon=1e-5, *args):
@@ -57,7 +57,7 @@ def compute_hessian(fun, x0, epsilon=1e-5, *args):
         ei[i] = 0.0
     return hessian
 
-def maximum_likelihood_solver(initial_conditions: dict, observed_data: SaltData | SaltDataCompact,
+def maximum_likelihood_solver(initial_conditions: dict, observed_data: SaltData,
                               bounds: dict = None, method: str = 'L-BFGS-B',
                               num_iter: int = 1000, epsilon: float = 1e-5,
                               print_message: bool = True):

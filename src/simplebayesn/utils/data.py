@@ -1,13 +1,12 @@
 import numpy as np
 from dataclasses import dataclass, field
-from typing import NamedTuple
 import h5py
 from pathlib import Path
 from emcee.backends import HDFBackend
 from .param_array import from_param_array
 
-class SaltDataCompact(NamedTuple):
-    num_samples: int
+@dataclass(frozen=True)
+class SaltData:
     m_app: np.ndarray
     c_app: np.ndarray
     x: np.ndarray
@@ -16,97 +15,21 @@ class SaltDataCompact(NamedTuple):
     dist_mod: np.ndarray
     sigma_mu_z2: np.ndarray
     cov: np.ndarray
-    inv_cov: np.ndarray
-
-@dataclass(frozen=True)
-class SaltData:
-    """
-    Container for SALT (Spectral Adaptive Lightcurve Template) type Ia supernova data.
-
-    This class is intended to hold the per-supernova arrays and associated covariance
-    matrices used in light-curve fitting and cosmological analyses. The primary data
-    is stored in the `data` mapping and exposed through convenience properties.
-
-    Expected attributes
-    -------------------
-    - data : dict[str, np.ndarray]
-        A dictionary of 1D numpy arrays of length N (number of SNe). Required keys:
-          - 'm_app' : apparent B-band peak magnitude (float array, shape (N,))
-          - 'c_app' : observed color (dimensionless, shape (N,))
-          - 'x'     : stretch (x1) parameter (dimensionless, shape (N,))
-          - 'z'     : redshift in the heliocentric or CMB frame as appropriate (shape (N,))
-          - 'sigma_z' : 1-sigma redshift uncertainty (shape (N,))
-          - 'dist_mod' : precomputed distance moduli μ(z) evaluated under a chosen cosmology
-                         (same units as magnitudes, shape (N,))
-          - 'sigma_mu_z2' : squared uncertainty on the observed distance moduli
-                            resulting from propagation of `sigma_z` and an assumed
-                            peculiar velocity uncertainty (i.e. σ_μ(z)^2, shape (N,))
-
-    - cov : np.ndarray
-        The full data covariance matrix (shape (N, 3, 3)) describing correlated uncertainties
-        between samples. `num_samples` is inferred from len(cov). This matrix may include
-        measurement errors, intrinsic scatter contributions, and any sample-to-sample
-        correlations provided by the user.
-
-    Properties
-    ----------
-    - num_samples -> int
-        The number of samples N implied by the covariance matrix (len(cov)).
-
-    - m_app, c_app, x, z, sigma_z, dist_mod, sigma_mu_z2
-        Convenience properties returning the corresponding arrays from `data`.
-
-    Notes
-    -----
-    - The `dist_mod` entries are expected to be computed for a specific cosmological
-      model (e.g., LambdaCDM with chosen parameters). Any change of cosmology requires
-      recomputing these values.
-    - The `sigma_mu_z2` entries must represent the variance (squared uncertainty)
-      on the distance modulus coming from propagating redshift uncertainty and adding
-      the contribution from assumed peculiar velocity dispersion (converted to magnitude
-      uncertainty). This is provided here so downstream code can combine it with other
-      error sources consistently.
-    - All arrays should have consistent ordering and length N.
-    """
-    data: dict[str, np.ndarray]
-    cov: np.ndarray
     inv_cov: np.ndarray = field(init=False)
+    num_samples: int = field(init=False)
+    data_params_names = ['m_app', 'c_app', 'x', 'z', 'sigma_z', 'dist_mod', 'sigma_mu_z2']
 
     def __post_init__(self):
         object.__setattr__(self, 'data', {
-            k:np.asarray(v) for k, v in self.data.items() # in case pd.Series objects are passed
+            param:np.asarray(getattr(self, param)) for param in self.data_params_names # in case pd.Series objects are passed
         })
         # self.inv_cov = np.linalg.inv(self.cov)
         object.__setattr__(self, 'inv_cov', np.linalg.inv(self.cov))
-
-    @property
-    def num_samples(self):
-        return len(self.cov)
-    @property
-    def m_app(self):
-        return self.data['m_app']
-    @property
-    def c_app(self):
-        return self.data['c_app']
-    @property
-    def x(self):
-        return self.data['x']
-    @property
-    def z(self):
-        return self.data['z']
-    @property
-    def sigma_z(self):
-        return self.data['sigma_z']
-    @property
-    def dist_mod(self):
-        return self.data['dist_mod']
-    @property
-    def sigma_mu_z2(self):
-        return self.data['sigma_mu_z2']
+        object.__setattr__(self, 'num_samples', len(self.cov))
     
 
     def __repr__(self) -> str:
-        data_keys = ", ".join(self.data.keys()) #", ".join(sorted(self.data.keys()))
+        data_keys = ", ".join(self.data_params_names) #", ".join(sorted(self.data.keys()))
         cov_shape = getattr(self.cov, "shape", None)
         inv_cov_shape = getattr(self.inv_cov, "shape", None)
         return (
@@ -116,7 +39,8 @@ class SaltData:
 
     def __str__(self) -> str:
         lines = [f"{self.__class__.__name__} with {self.num_samples} samples", "data arrays:"]
-        for k, v in self.data.items():
+        for param in self.data_params_names:
+            v = getattr(self, param)
             try:
                 arr = np.asarray(v)
                 preview = np.array2string(arr.flatten()[:5], separator=", ", max_line_width=80)
@@ -124,7 +48,7 @@ class SaltData:
             except Exception:
                 preview = "<unavailable>"
                 shape = getattr(v, "shape", None)
-            lines.append(f"  - {k}: shape={shape}, preview={preview}")
+            lines.append(f"  - {param}: shape={shape}, preview={preview}")
         lines.append(f"cov shape: {getattr(self.cov, 'shape', None)}")
         lines.append(f"inv_cov shape: {getattr(self.inv_cov, 'shape', None)}")
         return "\n".join(lines)
@@ -142,7 +66,8 @@ class SaltData:
 
         rows = [style, title, "<table class='simplebayesn'><thead><tr><th>key</th><th>shape</th><th>preview (first elements)</th></tr></thead><tbody>"]
 
-        for k, v in self.data.items():
+        for param in self.data_params_names:
+            v = getattr(self, param)
             try:
                 arr = np.asarray(v)
                 shape = arr.shape
@@ -151,28 +76,13 @@ class SaltData:
             except Exception:
                 shape = getattr(v, "shape", None)
                 preview = "<i>unavailable</i>"
-            rows.append(f"<tr><td>{escape(k)}</td><td>{escape(str(shape))}</td><td><code>{preview}</code></td></tr>")
+            rows.append(f"<tr><td>{escape(param)}</td><td>{escape(str(shape))}</td><td><code>{preview}</code></td></tr>")
 
         rows.append(f"<tr><td><strong>cov</strong></td><td>{escape(str(getattr(self.cov, 'shape', None)))}</td><td></td></tr>")
         rows.append(f"<tr><td><strong>inv_cov</strong></td><td>{escape(str(getattr(self.inv_cov, 'shape', None)))}</td><td></td></tr>")
         rows.append("</tbody></table>")
 
         return "\n".join(rows)
-    
-    @property
-    def compact(self):
-        return SaltDataCompact(
-            num_samples = self.num_samples,
-            m_app = np.asarray(self.m_app),
-            c_app = np.asarray(self.c_app),
-            x = np.asarray(self.x),
-            z = np.asarray(self.z), 
-            sigma_z = np.asarray(self.sigma_z),
-            dist_mod = np.asarray(self.dist_mod), 
-            sigma_mu_z2 = np.asarray(self.sigma_mu_z2),
-            cov = np.asarray(self.cov),
-            inv_cov = np.asarray(self.inv_cov)
-        )
     
     def __getitem__(self, i):
         return dict(

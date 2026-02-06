@@ -1,11 +1,11 @@
 import numpy as np
 from scipy.special import log_ndtr
 from ..utils.intrinsic import get_mean_int, get_cov_int
-from ..utils.data import SaltData, SaltDataCompact
+from ..utils.data import SaltData
 from scipy.special import logsumexp
 
 def marginal_loglikelihood(global_params: dict,
-                           observed_data: SaltData | SaltDataCompact):
+                           observed_data: SaltData):
     
     mean_int = get_mean_int(global_params).flatten()
     cov_int = get_cov_int(global_params)

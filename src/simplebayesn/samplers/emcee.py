@@ -3,7 +3,7 @@ import emcee
 from multiprocessing import Pool
 from ..distributions.likelihood import marginal_loglikelihood as log_lkl
 from ..utils.param_array import from_param_array
-from ..utils.data import SaltData, SaltDataCompact
+from ..utils.data import SaltData
 from functools import partial
 from ..distributions.selection.mc import (
     preprocess_arguments_log_selection_probability_mc_jax,
@@ -21,7 +21,7 @@ def log_posterior(x, log_prior, observed_data):
         return -np.inf
     return LL + LPR
 
-def log_posterior_selection(x, log_prior, observed_data: SaltData | SaltDataCompact,
+def log_posterior_selection(x, log_prior, observed_data: SaltData,
                             clim: tuple[float], xlim: tuple[float],
                             num_sim_per_sample: int,
                             use_kde_selection: bool, c_grid, z_grid, sel_prob_grid):
@@ -41,7 +41,7 @@ def log_posterior_selection(x, log_prior, observed_data: SaltData | SaltDataComp
 
 def emcee_sampler(num_walkers: int, num_burnin: int, num_samples: int,
                   initial_values: np.ndarray,
-                  log_prior: callable, observed_data: SaltData | SaltDataCompact,
+                  log_prior: callable, observed_data: SaltData,
                   selection: bool = False, kde_args: dict | None = None,
                   clim: tuple[float] = None, xlim: tuple[float] = None,                  
                   num_sim_per_sample: int = None,                  
