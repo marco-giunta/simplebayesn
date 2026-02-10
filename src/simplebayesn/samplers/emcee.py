@@ -64,7 +64,7 @@ def emcee_sampler(num_walkers: int, num_burnin: int, num_samples: int,
             
             c_grid, m_grid, sel_prob_grid = get_kde_interpolant_grids(
                 observed_data.c_app, observed_data.m_app,
-                kde_args['c_app'], kde_args['m'],
+                kde_args['c_app'], kde_args['m_app'],
                 kde_args['nc'], kde_args['nm'], kde_args['eps']
             )
             
