@@ -24,7 +24,8 @@ def log_posterior(x, log_prior, observed_data):
 def log_posterior_selection(x, log_prior, observed_data: SaltData,
                             clim: tuple[float], xlim: tuple[float],
                             num_sim_per_sample: int,
-                            use_kde_selection: bool, c_grid, z_grid, sel_prob_grid):
+                            use_kde_selection: bool,
+                            m_grid, c_grid, z_grid, sel_prob_grid):
     LP = log_posterior(x, log_prior, observed_data)
     LSP = log_selection_probability_mc_jax(
         **preprocess_arguments_log_selection_probability_mc_jax(observed_data=observed_data,
@@ -32,7 +33,7 @@ def log_posterior_selection(x, log_prior, observed_data: SaltData,
         clim=clim, xlim=xlim,
         num_sim_per_sample=num_sim_per_sample,
         use_kde_selection=use_kde_selection,
-        c_grid=c_grid, z_grid=z_grid, sel_prob_grid=sel_prob_grid,
+        m_grid=m_grid, c_grid=c_grid, z_grid=z_grid, sel_prob_grid=sel_prob_grid,
         seed=0
     )
     if not np.isfinite(LSP):
@@ -42,32 +43,36 @@ def log_posterior_selection(x, log_prior, observed_data: SaltData,
 def emcee_sampler(num_walkers: int, num_burnin: int, num_samples: int,
                   initial_values: np.ndarray,
                   log_prior: callable, observed_data: SaltData,
-                  selection: bool = False, kde_args: dict | None = None,
+                  selection: bool | None = None, kde_args: dict | None = None,
                   clim: tuple[float] = None, xlim: tuple[float] = None,                  
                   num_sim_per_sample: int = None,                  
                   backend = None, resume: bool = False,
                   parallel: bool = False, progress: bool = True):    
 
-    if not selection:
+    if selection is None:
         log_prob = partial(log_posterior, log_prior=log_prior, observed_data=observed_data)
     
     else:
-        if kde_args is None:
+        if selection == 'cuts':
             use_kde_selection = False
-            c_grid = z_grid = sel_prob_grid = None
-        else:
+            m_grid = c_grid = z_grid = sel_prob_grid = None
+        elif selection == 'kde':
             use_kde_selection = True
             
-            kde_args.setdefault('nc', 1000)
-            kde_args.setdefault('nz', 1000)
+            kde_args.setdefault('nm', 100)
+            kde_args.setdefault('nc', 100)
+            kde_args.setdefault('nz', 100)
             kde_args.setdefault('eps', 1e-8)
+            kde_args.setdefault('n_mc_norm', 100000)
             
-            c_grid, z_grid, sel_prob_grid = get_kde_interpolant_grids(
-                observed_data.c_app, observed_data.z,
-                kde_args['c_app'], kde_args['z'],
-                kde_args['nc'], kde_args['nz'], kde_args['eps']
+            m_grid, c_grid, z_grid, sel_prob_grid = get_kde_interpolant_grids(
+                observed_data.m_app, observed_data.c_app, observed_data.z,
+                kde_args['m_app'], kde_args['c_app'], kde_args['z'],
+                kde_args['nm'], kde_args['nc'], kde_args['nz'],
+                kde_args['eps'], kde_args['n_mc_norm']
             )
-            
+        else:
+            raise ValueError(f'selection must be "kde", "cuts", or None, got {selection} instead')
             
         log_prob = partial(
             log_posterior_selection,
@@ -76,6 +81,7 @@ def emcee_sampler(num_walkers: int, num_burnin: int, num_samples: int,
             clim=clim, xlim=xlim,
             num_sim_per_sample=num_sim_per_sample,
             use_kde_selection=use_kde_selection,
+            m_grid=m_grid,
             c_grid=c_grid,
             z_grid=z_grid,
             sel_prob_grid=sel_prob_grid
