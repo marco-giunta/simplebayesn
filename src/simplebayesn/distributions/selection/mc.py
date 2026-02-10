@@ -27,10 +27,10 @@ def preprocess_arguments_log_selection_probability_mc_jax(observed_data: SaltDat
     }
 
 def get_kde_interpolant_grids(c_sel, z_sel, c_com, z_com,
-                        nc = 1000, nz = 1000,
-                        eps=1e-8):
-    cmin, cmax = np.min(c_com), np.max(c_com)
-    zmin, zmax = np.min(z_com), np.max(z_com)
+                              nc = 1000, nz = 1000,
+                              eps = 1e-8):
+    c_min, c_max = np.min(c_com), np.max(c_com)
+    z_min, z_max = np.min(z_com), np.max(z_com)
 
     kde_sel = gaussian_kde(np.vstack([c_sel, z_sel]))
     kde_com = gaussian_kde(np.vstack([c_com, z_com]))
@@ -39,13 +39,13 @@ def get_kde_interpolant_grids(c_sel, z_sel, c_com, z_com,
         cz = np.vstack([c, z])
         return kde_sel(cz) / (kde_com(cz) + eps)
     
-    integral = dblquad(sel_prob_unnnorm, zmin, zmax, cmin, cmax)[0]
+    integral = dblquad(sel_prob_unnnorm, z_min, z_max, c_min, c_max)[0]
 
     def sel_prob(c, z, eps=eps):
         return sel_prob_unnnorm(c, z, eps) / integral
     
-    c_vec = np.linspace(cmin, cmax, nc)
-    z_vec = np.linspace(zmin, zmax, nz)
+    c_vec = np.linspace(c_min, c_max, nc)
+    z_vec = np.linspace(z_min, z_max, nz)
 
     c_grid, z_grid = np.meshgrid(c_vec, z_vec, indexing='ij')
 
@@ -68,27 +68,34 @@ def interpolate_selection_2d(c, z, c_vec, z_vec, sel_prob_grid):
     z_min = z_vec[0]
     z_max = z_vec[-1]
     
-    outside = ((c < c_min) | (c > c_max) | (z < z_min) | (z > z_max))
+    outside = ((c < c_min) | (c > c_max) |
+               (z < z_min) | (z > z_max))
     
-    c_idx = (c - c_min) / (c_max - c_min) * (nc - 1)
-    z_idx = (z - z_min) / (z_max - z_min) * (nz - 1)
+    # Convert to grid indices: (c-c0) / dc, with dc = (c1-c0)/(nc-1)
+    c_idx = (c - c_min) * ((nc - 1) / (c_max - c_min))
+    z_idx = (z - z_min) * ((nz - 1) / (z_max - z_min))
     
+    # Clip indices
     c_idx = jnp.clip(c_idx, 0, nc - 1)
     z_idx = jnp.clip(z_idx, 0, nz - 1)
     
+    # Get surrounding indices
     c_i0 = jnp.floor(c_idx).astype(int)
     z_i0 = jnp.floor(z_idx).astype(int)
     c_i1 = jnp.minimum(c_i0 + 1, nc - 1)
     z_i1 = jnp.minimum(z_i0 + 1, nz - 1)
     
+    # Get fractional parts = increments for linear interpolation
     c_frac = c_idx - c_i0
     z_frac = z_idx - z_i0
     
+    # Bilinear interpolation (4 corners of square)
     val_00 = sel_prob_grid[c_i0, z_i0]
     val_01 = sel_prob_grid[c_i0, z_i1]
     val_10 = sel_prob_grid[c_i1, z_i0]
     val_11 = sel_prob_grid[c_i1, z_i1]
     
+    # Interpolate
     val = (val_00 * (1 - c_frac) * (1 - z_frac) +
            val_01 * (1 - c_frac) * z_frac +
            val_10 * c_frac * (1 - z_frac) + 
