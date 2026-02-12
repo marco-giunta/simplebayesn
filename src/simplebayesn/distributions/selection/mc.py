@@ -150,12 +150,17 @@ def log_selection_probability_mc_jax(tau, RB,
                                      observed_data_dist_mod, observed_data_sigma_mu_z2, observed_data_cov,
                                      observed_data_num_samples, observed_data_z,
                                      num_sim_per_sample,
+                                     dist_mod_sim = None, sigma_mu_z2_sim = None, cov_sim = None, z_sim = None,
                                      use_kde_selection: bool = False,
                                      m_grid = None, c_grid = None, z_grid = None, sel_prob_grid = None,
                                      seed=0):
-    
+    dm = observed_data_dist_mod if dist_mod_sim is None else dist_mod_sim
+    s_mu_z2 = observed_data_sigma_mu_z2 if sigma_mu_z2_sim is None else sigma_mu_z2_sim
+    cov = observed_data_cov if cov_sim is None else cov_sim
+    z = observed_data_z if z_sim is None else z_sim
+    shape_sim = (len(dm), num_sim_per_sample)
+
     key_x, key_c, key_M, key_E, key_dist_mod, key_noise = jax.random.split(jax.random.key(seed), 6)
-    shape_sim = (observed_data_num_samples, num_sim_per_sample)
     x = x0 + jnp.sqrt(sigmax2) * jax.random.normal(key_x, shape_sim)
     c_int = c0_int + alphac_int * x + jnp.sqrt(sigmac_int2) * jax.random.normal(key_c, shape_sim)
     M_int = M0_int + alpha * x + beta_int * c_int + sigma_int2 * jax.random.normal(key_M, shape_sim)
@@ -164,12 +169,12 @@ def log_selection_probability_mc_jax(tau, RB,
     M_ext = M_int + RB * E
     c_app = c_int + E
 
-    dist_mod = observed_data_dist_mod[:, None] + jnp.sqrt(observed_data_sigma_mu_z2)[:, None] * jax.random.normal(key_dist_mod, shape_sim)
+    dist_mod = dm[:, None] + jnp.sqrt(s_mu_z2)[:, None] * jax.random.normal(key_dist_mod, shape_sim)
     m_app = M_ext + dist_mod
 
     mcx = (
         jnp.stack([m_app, c_app, x], axis=-1) +
-        jnp.einsum('nij,nsj->nsi', jnp.linalg.cholesky(observed_data_cov), jax.random.normal(key_noise, (*shape_sim, 3)))
+        jnp.einsum('nij,nsj->nsi', jnp.linalg.cholesky(cov), jax.random.normal(key_noise, (*shape_sim, 3)))
     )
     m_app_obs = mcx[..., 0]
     c_app_obs = mcx[..., 1]
@@ -184,7 +189,7 @@ def log_selection_probability_mc_jax(tau, RB,
         ).mean(axis=1)
     else:
         p = interpolate_selection_3d(
-            m_app_obs, c_app_obs, observed_data_z[:, None],
+            m_app_obs, c_app_obs, z[:, None],
             m_grid, c_grid, z_grid,
             sel_prob_grid
         ).mean(axis=1)
