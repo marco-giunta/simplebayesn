@@ -195,4 +195,4 @@ def log_selection_probability_mc_jax(tau, RB,
         ).mean(axis=1)
 
     
-    return jnp.sum(jnp.log(p))
+    return jnp.sum(jnp.log(p)) * observed_data_num_samples / len(dm)
