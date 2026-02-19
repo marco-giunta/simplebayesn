@@ -178,7 +178,7 @@ def log_selection_probability_mc_clf(global_params: dict, observed_data: SaltDat
     x_obs     = mcx[..., 2]
     
     p = clf.predict_proba( # hardcode sklearn dependence + selected class=1 here?
-        np.stack([m_app_obs, c_app_obs, x_obs, np.tile(observed_data.z[:, None], (1, num_sim_per_sample))], axis = -1).reshape(-1, 4) # (N_sam, N_sim, 4) -> (N_sam * N_sim, 4)
+        np.stack([m_app_obs, c_app_obs], axis = -1).reshape(-1, 2) # (N_sam, N_sim, 2) -> (N_sam * N_sim, 2)
     )[:, 1].reshape(shape_sim).mean(axis = 1) # (N_sam, N_sim) -> (N_sam, )
 
     return np.sum(np.log(p/(1-p)))
