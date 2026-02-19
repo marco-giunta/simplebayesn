@@ -4,7 +4,7 @@ from functools import partial
 from ...utils.data import SaltData
 import numpy as np
 from scipy.stats import gaussian_kde
-from scipy.integrate import dblquad
+from scipy.integrate import quad
 
 def preprocess_arguments_log_selection_probability_mc_jax(observed_data: SaltData, global_params):
     return {
@@ -26,80 +26,51 @@ def preprocess_arguments_log_selection_probability_mc_jax(observed_data: SaltDat
         'sigma_int2':global_params['sigma_int2'],
     }
 
-def get_kde_interpolant_grids(c_sel, m_sel, c_com, m_com,
-                              nc = 1000, nm = 1000,
-                              eps = 1e-8):
-    c_min, c_max = np.min(c_com), np.max(c_com)
+def get_kde_interpolant_grid(m_sel, m_com, nm = 1000, eps = 1e-8):
     m_min, m_max = np.min(m_com), np.max(m_com)
 
-    kde_sel = gaussian_kde(np.vstack([c_sel, m_sel]))
-    kde_com = gaussian_kde(np.vstack([c_com, m_com]))
+    kde_sel = gaussian_kde(m_sel)
+    kde_com = gaussian_kde(m_com)
 
-    def sel_prob_unnnorm(c, m, eps=eps):
-        cm = np.vstack([c, m])
-        return kde_sel(cm) / (kde_com(cm) + eps)
+    def sel_prob_unnorm(m, eps=eps):
+        return kde_sel(m) / (kde_com(m) + eps)
     
-    integral = dblquad(sel_prob_unnnorm, m_min, m_max, c_min, c_max)[0]
+    integral = quad(sel_prob_unnorm, m_min, m_max)[0]
 
-    def sel_prob(c, m, eps=eps):
-        return sel_prob_unnnorm(c, m, eps) / integral
+    def sel_prob(m, eps=eps):
+        return sel_prob_unnorm(m, eps) / integral
     
-    c_vec = np.linspace(c_min, c_max, nc)
     m_vec = np.linspace(m_min, m_max, nm)
-
-    c_grid, m_grid = np.meshgrid(c_vec, m_vec, indexing='ij')
-
-    positions = np.vstack([c_grid.ravel(), m_grid.ravel()])
-    sel_prob_grid = sel_prob(positions[0], positions[1]).T.reshape(c_grid.shape)
+    sel_prob_grid = sel_prob(m_vec)
     
-    c_vec = jnp.asarray(c_vec)
     m_vec = jnp.asarray(m_vec)
     sel_prob_grid = jnp.asarray(sel_prob_grid)
 
-    return c_vec, m_vec, sel_prob_grid
+    return m_vec, sel_prob_grid
 
 @jax.jit
-def interpolate_selection_2d(c, m, c_vec, m_vec, sel_prob_grid):
-    nc = len(c_vec)
+def interpolate_selection(m, m_vec, sel_prob_grid):
     nm = len(m_vec)
     
-    c_min = c_vec[0]
-    c_max = c_vec[-1]
     m_min = m_vec[0]
     m_max = m_vec[-1]
     
-    outside = ((c < c_min) | (c > c_max) |
-               (m < m_min) | (m > m_max))
+    outside = (m < m_min) | (m > m_max)
     
-    # Convert to grid indices: (c-c0) / dc, with dc = (c1-c0)/(nc-1)
-    c_idx = (c - c_min) * ((nc - 1) / (c_max - c_min))
     m_idx = (m - m_min) * ((nm - 1) / (m_max - m_min))
-    
-    # Clip indices
-    c_idx = jnp.clip(c_idx, 0, nc - 1)
+
     m_idx = jnp.clip(m_idx, 0, nm - 1)
     
-    # Get surrounding indices
-    c_i0 = jnp.floor(c_idx).astype(int)
     m_i0 = jnp.floor(m_idx).astype(int)
-    c_i1 = jnp.minimum(c_i0 + 1, nc - 1)
     m_i1 = jnp.minimum(m_i0 + 1, nm - 1)
     
-    # Get fractional parts = increments for linear interpolation
-    c_frac = c_idx - c_i0
     m_frac = m_idx - m_i0
     
-    # Bilinear interpolation (4 corners of square)
-    val_00 = sel_prob_grid[c_i0, m_i0]
-    val_01 = sel_prob_grid[c_i0, m_i1]
-    val_10 = sel_prob_grid[c_i1, m_i0]
-    val_11 = sel_prob_grid[c_i1, m_i1]
+    val_0 = sel_prob_grid[m_i0]
+    val_1 = sel_prob_grid[m_i1]
     
-    # Interpolate
-    val = (val_00 * (1 - c_frac) * (1 - m_frac) +
-           val_01 * (1 - c_frac) * m_frac +
-           val_10 * c_frac * (1 - m_frac) + 
-           val_11 * c_frac * m_frac)
+    val = (val_0 * (1 - m_frac) +
+           val_1 * m_frac)
     
     return jnp.where(outside, 0.0, val)
 
@@ -120,7 +91,7 @@ def log_selection_probability_mc_jax(tau, RB,
                                      observed_data_num_samples, observed_data_z,
                                      num_sim_per_sample,
                                      use_kde_selection: bool = False,
-                                     c_grid = None, m_grid = None, sel_prob_grid = None,
+                                     m_grid = None, sel_prob_grid = None,
                                      seed=0):
     
     key_x, key_c, key_M, key_E, key_dist_mod, key_noise = jax.random.split(jax.random.key(seed), 6)
@@ -144,16 +115,18 @@ def log_selection_probability_mc_jax(tau, RB,
     c_app_obs = mcx[..., 1]
     x_obs = mcx[..., 2]
     
-    if not use_kde_selection:
-        p = (
-            (c_app_obs > clim[0]) &
-            (c_app_obs < clim[1]) &
-            (x_obs > xlim[0]) &
-            (x_obs < xlim[1])
-        ).mean(axis=1)
-    else:
-        p = interpolate_selection_2d(c_app_obs, m_app_obs,
-                                     c_grid, m_grid, sel_prob_grid).mean(axis=1)
-
     
-    return jnp.sum(jnp.log(p))
+    p_cx = (
+        (c_app_obs > clim[0]) &
+        (c_app_obs < clim[1]) &
+        (x_obs > xlim[0]) &
+        (x_obs < xlim[1])
+    ).mean(axis=1)
+    
+    return jnp.sum(
+        jnp.log(p_cx) + (
+            jnp.log(interpolate_selection(m_app_obs,
+                                          m_grid,
+                                          sel_prob_grid).mean(axis=1)) if use_kde_selection else 0
+        )
+    )
