@@ -35,14 +35,14 @@ def get_kde_interpolant_grids(c_sel, z_sel, c_com, z_com,
     kde_sel = gaussian_kde(np.vstack([c_sel, z_sel]))
     kde_com = gaussian_kde(np.vstack([c_com, z_com]))
 
-    def sel_prob_unnnorm(c, z, eps=eps):
+    def sel_prob_unnorm(c, z, eps=eps):
         cz = np.vstack([c, z])
         return kde_sel(cz) / (kde_com(cz) + eps)
     
-    integral = dblquad(sel_prob_unnnorm, zmin, zmax, cmin, cmax)[0]
+    integral = dblquad(sel_prob_unnorm, zmin, zmax, cmin, cmax)[0]
 
     def sel_prob(c, z, eps=eps):
-        return sel_prob_unnnorm(c, z, eps) / integral
+        return sel_prob_unnorm(c, z, eps) / integral
     
     c_vec = np.linspace(cmin, cmax, nc)
     z_vec = np.linspace(zmin, zmax, nz)
@@ -149,3 +149,36 @@ def log_selection_probability_mc_jax(tau, RB,
 
     
     return jnp.sum(jnp.log(p))
+
+def log_selection_probability_mc_clf(global_params: dict, observed_data: SaltData,
+                                     clf, num_sim_per_sample: int, seed: int = 0):
+    rng = np.random.default_rng(seed)
+    shape_sim = (observed_data.num_samples, num_sim_per_sample)
+    x = rng.normal(loc = global_params['x0'], scale = np.sqrt(global_params['sigmax2']), size = shape_sim)
+    c_int = rng.normal(loc = global_params['c0_int'] + global_params['alphac_int'] * x,
+                       scale = np.sqrt(global_params['sigmac_int2']), size = shape_sim)
+    M_int = rng.normal(loc = global_params['M0_int'] + global_params['alpha'] * x + global_params['beta_int'] * c_int,
+                       scale = np.sqrt(global_params['sigma_int2']), size = shape_sim)
+    
+    E = rng.exponential(scale = global_params['tau'], size = shape_sim)
+    M_ext = M_int + global_params['RB'] * E
+    c_app = c_int + E
+
+    # condition on observed z dist + dm linearization, and on observed redshift error + chosen sigma_pec
+    dist_mod = observed_data.dist_mod[:, None] + np.sqrt(observed_data.sigma_mu_z2)[:, None] * rng.normal(size = shape_sim)
+    m_app = M_ext + dist_mod
+
+    # condition on observed salt cov dist
+    mcx = (
+        np.stack([m_app, c_app, x], axis = -1) +
+        np.einsum('nij,nsj->nsi', np.linalg.cholesky(observed_data.cov), rng.normal(size = (*shape_sim, 3)))
+    )
+    m_app_obs = mcx[..., 0]
+    c_app_obs = mcx[..., 1]
+    x_obs     = mcx[..., 2]
+    
+    p = clf.predict_proba( # hardcode sklearn dependence + selected class=1 here?
+        np.stack([m_app_obs, c_app_obs, x_obs, np.tile(observed_data.z[:, None], (1, num_sim_per_sample))], axis = -1).reshape(-1, 4) # (N_sam, N_sim, 4) -> (N_sam * N_sim, 4)
+    )[:, 1].reshape(shape_sim).mean(axis = 1) # (N_sam, N_sim) -> (N_sam, )
+
+    return np.sum(np.log(p/(1-p)))

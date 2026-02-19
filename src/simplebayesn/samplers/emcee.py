@@ -8,13 +8,15 @@ from functools import partial
 from ..distributions.selection.mc import (
     preprocess_arguments_log_selection_probability_mc_jax,
     log_selection_probability_mc_jax,
-    get_kde_interpolant_grids
+    get_kde_interpolant_grids,
+    log_selection_probability_mc_clf
 )
+from ..distributions.priors.emcee import uniform_marginal_log_prior
 
 def log_posterior(x, log_prior, observed_data):
     params = from_param_array(x)
     LPR = log_prior(params)
-    if not np.isfinite(LPR):
+    if not np.isfinite(LPR) or not np.isfinite(uniform_marginal_log_prior(params)):
         return -np.inf
     LL = log_lkl(params, observed_data)
     if not np.isfinite(LL): # superfluo se mi assicuro tau>0, sigmax2>0, ecc. usando il log_prior su R+
@@ -24,8 +26,11 @@ def log_posterior(x, log_prior, observed_data):
 def log_posterior_selection(x, log_prior, observed_data: SaltData,
                             clim: tuple[float], xlim: tuple[float],
                             num_sim_per_sample: int,
-                            use_kde_selection: bool, c_grid, z_grid, sel_prob_grid):
+                            use_kde_selection: bool, c_grid, z_grid, sel_prob_grid,
+                            clf = None):
     LP = log_posterior(x, log_prior, observed_data)
+    if not np.isfinite(LP):
+        return LP
     LSP = log_selection_probability_mc_jax(
         **preprocess_arguments_log_selection_probability_mc_jax(observed_data=observed_data,
                                                                 global_params=from_param_array(x)),
@@ -34,6 +39,8 @@ def log_posterior_selection(x, log_prior, observed_data: SaltData,
         use_kde_selection=use_kde_selection,
         c_grid=c_grid, z_grid=z_grid, sel_prob_grid=sel_prob_grid,
         seed=0
+    ) if clf is None else log_selection_probability_mc_clf(
+        from_param_array(x), observed_data, clf, num_sim_per_sample
     )
     if not np.isfinite(LSP):
         return -np.inf
@@ -43,8 +50,9 @@ def emcee_sampler(num_walkers: int, num_burnin: int, num_samples: int,
                   initial_values: np.ndarray,
                   log_prior: callable, observed_data: SaltData,
                   selection: bool = False, kde_args: dict | None = None,
-                  clim: tuple[float] = None, xlim: tuple[float] = None,                  
-                  num_sim_per_sample: int = None,                  
+                  clim: tuple[float] = None, xlim: tuple[float] = None,
+                  num_sim_per_sample: int = None,
+                  clf = None,
                   backend = None, resume: bool = False,
                   parallel: bool = False, progress: bool = True):    
 
@@ -78,7 +86,8 @@ def emcee_sampler(num_walkers: int, num_burnin: int, num_samples: int,
             use_kde_selection=use_kde_selection,
             c_grid=c_grid,
             z_grid=z_grid,
-            sel_prob_grid=sel_prob_grid
+            sel_prob_grid=sel_prob_grid,
+            clf=clf
         )
     if parallel:
         with Pool() as pool:
