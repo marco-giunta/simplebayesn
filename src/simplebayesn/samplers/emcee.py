@@ -24,7 +24,7 @@ def log_posterior(x, log_prior, observed_data):
 def log_posterior_selection(x, log_prior, observed_data: SaltData,
                             clim: tuple[float], xlim: tuple[float],
                             num_sim_per_sample: int,
-                            use_kde_selection: bool, c_grid, m_grid, sel_prob_grid):
+                            use_kde_selection: bool, c_grid, m_grid, sel_prob_grid_c, sel_prob_grid_m):
     LP = log_posterior(x, log_prior, observed_data)
     LSP = log_selection_probability_mc_jax(
         **preprocess_arguments_log_selection_probability_mc_jax(observed_data=observed_data,
@@ -32,7 +32,7 @@ def log_posterior_selection(x, log_prior, observed_data: SaltData,
         clim=clim, xlim=xlim,
         num_sim_per_sample=num_sim_per_sample,
         use_kde_selection=use_kde_selection,
-        c_grid=c_grid, m_grid=m_grid, sel_prob_grid=sel_prob_grid,
+        c_grid=c_grid, m_grid=m_grid, sel_prob_grid_c=sel_prob_grid_c, sel_prob_grid_m=sel_prob_grid_m,
         seed=0
     )
     if not np.isfinite(LSP):
@@ -54,7 +54,7 @@ def emcee_sampler(num_walkers: int, num_burnin: int, num_samples: int,
     else:
         if kde_args is None:
             use_kde_selection = False
-            c_grid = m_grid = sel_prob_grid = None
+            c_grid = m_grid = sel_prob_grid_c = sel_prob_grid_m = None
         else:
             use_kde_selection = True
             
@@ -62,7 +62,7 @@ def emcee_sampler(num_walkers: int, num_burnin: int, num_samples: int,
             kde_args.setdefault('nm', 1000)
             kde_args.setdefault('eps', 1e-8)
             
-            c_grid, m_grid, sel_prob_grid = get_kde_interpolant_grids(
+            c_grid, m_grid, sel_prob_grid_c, sel_prob_grid_m = get_kde_interpolant_grids(
                 observed_data.c_app, observed_data.m_app,
                 kde_args['c_app'], kde_args['m_app'],
                 kde_args['nc'], kde_args['nm'], kde_args['eps']
@@ -78,7 +78,8 @@ def emcee_sampler(num_walkers: int, num_burnin: int, num_samples: int,
             use_kde_selection=use_kde_selection,
             c_grid=c_grid,
             m_grid=m_grid,
-            sel_prob_grid=sel_prob_grid
+            sel_prob_grid_c=sel_prob_grid_c,
+            sel_prob_grid_m=sel_prob_grid_m
         )
     if parallel:
         with Pool() as pool:
