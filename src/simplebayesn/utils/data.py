@@ -175,3 +175,9 @@ class GibbsChainData:
         with h5py.File(Path(path), 'w') as f:
             for param in self.latent_params_names + self.global_params_names:
                 f.create_dataset(param, data = getattr(self, param))
+
+def load_gibbs_data(path: str | Path):
+    return GibbsChainData().load(path)
+
+def load_emcee_data(path: str | Path):
+    return GibbsChainData().load(path, marginal=True)

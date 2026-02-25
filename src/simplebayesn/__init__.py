@@ -3,6 +3,7 @@ from . import distributions
 from .distributions import priors, selection
 from . import samplers, simulators, solvers
 from .utils.preprocessing import preprocess_data
+from .utils.data import load_gibbs_data, load_emcee_data
 import sys
 
 # Make these accessible as proper top-level submodules
@@ -19,6 +20,8 @@ __all__ = [
     'simulators',
     'solvers',
     'preprocess_data',
+    'load_gibbs_data',
+    'load_emcee_data'
 ]
 
 from importlib.metadata import version
