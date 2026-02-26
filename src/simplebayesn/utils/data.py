@@ -177,7 +177,10 @@ class GibbsChainData:
                 f.create_dataset(param, data = getattr(self, param))
 
 def load_gibbs_data(path: str | Path):
-    return GibbsChainData().load(path)
+    try:
+        return GibbsChainData().load(path)
+    except KeyError:
+        raise ValueError('Please use load_emcee_data to open emcee data (latents are missing from provided file)')
 
 def load_emcee_data(path: str | Path):
     return GibbsChainData().load(path, marginal=True)
