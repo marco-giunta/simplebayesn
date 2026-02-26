@@ -5,6 +5,7 @@ from corner import corner
 import seaborn as sns
 from ..utils.data import GibbsChainData
 from matplotlib.animation import FuncAnimation
+from matplotlib.colors import TABLEAU_COLORS as tab_colors
 
 PARAMS_LATEX_MAP = {
     'M0_int': r'$M_0^{\text{int}}$',
@@ -334,7 +335,41 @@ def extinguished_magnitude_color_distribution_animation(
     plt.tight_layout()
     return anim, fig
 
-
-
-
+def compare_posterior_cornerplots(chains: list[GibbsChainData],
+                                  start_idx: int = 0, stop_idx: int = None,
+                                  title: str = None, levels = (0.393, 0.864),
+                                  show_joint_mean: bool = True,
+                                  truth_dict: dict = None,
+                                  contours_colors: list[str] = None, mean_colors: list[str] = None,
+                                  truth_color: str = 'black',
+                                  axes_labels_fontsize = 25, diag_labels_fontsize = 18, ticks_labels_fontsize = 16, title_fontsize = 25,
+                                  params_to_plot: list = None,
+                                  *args, **kwargs):
     
+    if contours_colors is not None and len(contours_colors) != len(chains):
+        raise ValueError(f'{len(chains) = } but {len(contours_colors) = }')
+    if mean_colors is not None and len(mean_colors) != len(chains):
+        raise ValueError(f'{len(chains) = } but {len(mean_colors) = }')
+
+    if contours_colors is None:
+        contours_colors = list(tab_colors.keys())[:len(chains)]
+    if mean_colors is None:
+        mean_colors = list(tab_colors.keys())[:len(chains)]
+
+    shared_args = dict(start_idx = start_idx, stop_idx = stop_idx, title = title,
+                       truth_dict = truth_dict, truth_color = truth_color,
+                       levels = levels, show_joint_mean = show_joint_mean, show_marginal_mean = False,
+                       show_marginal_std = False, show_titles = False, 
+                       axes_labels_fontsize = axes_labels_fontsize, diag_labels_fontsize = diag_labels_fontsize,
+                       ticks_labels_fontsize = ticks_labels_fontsize, params_to_plot = params_to_plot)
+    
+    fig = posterior_cornerplot(chains[0], contours_color = contours_colors[0],
+                               mean_color = mean_colors[0],
+                               *args, **kwargs, **shared_args)
+
+    for i in range(1, len(chains)):
+        posterior_cornerplot(chains[i], contours_color = contours_colors[i],
+                             mean_color = mean_colors[i],
+                             *args, **kwargs, **shared_args, fig = fig)
+
+    return fig
