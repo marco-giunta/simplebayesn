@@ -6,6 +6,7 @@ import seaborn as sns
 from ..utils.data import GibbsChainData
 from matplotlib.animation import FuncAnimation
 from matplotlib.colors import TABLEAU_COLORS as tab_colors
+from matplotlib.patches import Patch
 
 PARAMS_LATEX_MAP = {
     'M0_int': r'$M_0^{\text{int}}$',
@@ -338,11 +339,14 @@ def extinguished_magnitude_color_distribution_animation(
 def compare_posterior_cornerplots(chains: list[GibbsChainData],
                                   start_idx: int = 0, stop_idx: int = None,
                                   title: str = None, levels = (0.393, 0.864),
+                                  labels: list[str] = None,
                                   show_joint_mean: bool = True,
                                   truth_dict: dict = None,
                                   contours_colors: list[str] = None, mean_colors: list[str] = None,
                                   truth_color: str = 'black',
-                                  axes_labels_fontsize = 25, diag_labels_fontsize = 18, ticks_labels_fontsize = 16, title_fontsize = 25,
+                                  axes_labels_fontsize = 25,
+                                  ticks_labels_fontsize = 16, title_fontsize = 25,
+                                  legend_fontsize: int = 20,
                                   params_to_plot: list = None,
                                   *args, **kwargs):
     
@@ -360,8 +364,9 @@ def compare_posterior_cornerplots(chains: list[GibbsChainData],
                        truth_dict = truth_dict, truth_color = truth_color,
                        levels = levels, show_joint_mean = show_joint_mean, show_marginal_mean = False,
                        show_marginal_std = False, show_titles = False, 
-                       axes_labels_fontsize = axes_labels_fontsize, diag_labels_fontsize = diag_labels_fontsize,
-                       ticks_labels_fontsize = ticks_labels_fontsize, params_to_plot = params_to_plot)
+                       axes_labels_fontsize = axes_labels_fontsize,
+                       ticks_labels_fontsize = ticks_labels_fontsize, title_fontsize = title_fontsize,
+                       params_to_plot = params_to_plot)
     
     fig = posterior_cornerplot(chains[0], contours_color = contours_colors[0],
                                mean_color = mean_colors[0],
@@ -371,5 +376,21 @@ def compare_posterior_cornerplots(chains: list[GibbsChainData],
         posterior_cornerplot(chains[i], contours_color = contours_colors[i],
                              mean_color = mean_colors[i],
                              *args, **kwargs, **shared_args, fig = fig)
+
+    if labels is not None:
+        legend_handles = [
+            Patch(facecolor=contours_colors[i], label=labels[i])
+            for i in range(len(chains))
+        ]
+        ndim = len(params_to_plot) if params_to_plot is not None else 11
+        axes = np.array(fig.axes).reshape((ndim, ndim))
+        legend_ax = axes[0, -1]
+        legend_ax.legend(
+            handles=legend_handles,
+            fontsize=legend_fontsize,
+            loc='upper right',
+            frameon=True,
+            framealpha=0.8,
+        )
 
     return fig
