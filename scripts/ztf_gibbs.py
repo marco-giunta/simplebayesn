@@ -41,5 +41,7 @@ def ztf_gibbs(argv = None):
     # save
     gd_ztf.save(gd_ztf_h5_path)
 
+    return gd_ztf
+
 if __name__ == '__main__':
     ztf_gibbs()
