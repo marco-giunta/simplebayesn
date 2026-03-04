@@ -526,7 +526,7 @@ def extinguished_magnitude_color_distribution_frame(
     start_idx: int = 0,
     stop_idx: int = None,
     title: str = None,
-    color_dust: bool = False,
+    color_dust: bool = True,
     verbose: bool = False,
     labels_fontsize = 12,
     title_fontsize = 14,
