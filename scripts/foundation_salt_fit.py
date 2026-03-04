@@ -95,11 +95,13 @@ def foundation_salt_fit(argv = None):
 
     def fit_fnd_sample(sample_path: Path):
         sn_data_list = []
-        file_names = os.listdir(sample_path)[3:]
+        file_names = os.listdir(sample_path)
         # ignore Foundation_DR1.IGNORE, Foundation_DR1.LIST, Foundation_DR1.README;
         # all valid SNe are called Foundation_DR1_(...)
 
         for f in tqdm(file_names):
+            if f.startswith('Foundation_DR1.'):
+                continue
             sn_data_list.append({'id':f.removeprefix('Foundation_DR1_').removesuffix('.txt'),
                                  **fit_fnd_sn(sample_path / f)})
 
