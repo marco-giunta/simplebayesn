@@ -167,7 +167,8 @@ def marginal_posterior(chain: GibbsChainData, param: str,
 def intrinsic_magnitude_color_distribution_animation(chain_data: GibbsChainData,
                                                      start_idx: int = 0, stop_idx: int = None,
                                                      title: str = None,
-                                                     step_stride: int = 500, color_dust: bool = False):
+                                                     step_stride: int = 500, color_dust: bool = True,
+                                                     verbose: bool = False):
     gp = chain_data[start_idx:stop_idx]['global_params']
     lp = chain_data[start_idx:stop_idx]['latent_params']
 
@@ -182,14 +183,13 @@ def intrinsic_magnitude_color_distribution_animation(chain_data: GibbsChainData,
     num_frames = len(step_idx)
 
     c_min, c_max = c_int.min(), c_int.max()
-    M_min, M_max = M_int.min(), M_int.max()
+    M_min, M_max = M_int_ax.min(), M_int_ax.max()
     pad_c = 0.02 * (c_max - c_min) if c_max != c_min else 0.01
     pad_M = 0.02 * (M_max - M_min) if M_max != M_min else 0.1
 
     if color_dust:
         norm = plt.Normalize(vmin=lp['E'].min(), vmax=lp['E'].max())
         cmap = plt.cm.inferno
-        colors = cmap(norm(lp['E'][0]))
 
     fig, ax = plt.subplots(figsize=(6, 5))
     scat = ax.scatter([], [], s=10, alpha=0.6, color='k')
@@ -198,9 +198,9 @@ def intrinsic_magnitude_color_distribution_animation(chain_data: GibbsChainData,
 
     ax.set_xlim(c_min - pad_c, c_max + pad_c)
     ax.set_ylim(M_max + pad_M, M_min - pad_M)  # reversed y-axis for magnitudes (bright up)
-    ax.set_xlabel("Intrinsic color $c_{\\rm int}$")
-    ax.set_ylabel("Stretch corrected intrinsic magnitude $M_{\\rm int}-\\alpha x$")
-    if title is None:
+    ax.set_xlabel("Intrinsic color $c_{\\rm int}$" if verbose else '$c_{\\rm int}$')
+    ax.set_ylabel("Stretch corrected intrinsic magnitude $M_{\\rm int}-\\alpha x$" if verbose else '$M_{\\rm int}-\\alpha x$')
+    if title is None and verbose:
         ax.set_title("Evolution of intrinsic population and $\\beta_{\\rm int}$")
     else:
         ax.set_title(title)
@@ -218,7 +218,7 @@ def intrinsic_magnitude_color_distribution_animation(chain_data: GibbsChainData,
         b = beta_int[step]
 
         c = c_int[step, :]
-        M = M_int[step, :]
+        M = M_int_ax[step, :]
         offsets = np.column_stack([c, M])
         scat.set_offsets(offsets)
         if color_dust:
@@ -235,7 +235,7 @@ def intrinsic_magnitude_color_distribution_animation(chain_data: GibbsChainData,
     anim = FuncAnimation(fig, update, frames=num_frames, init_func=init, blit=True, interval=150)
     if color_dust:
         sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
-        fig.colorbar(sm, ax=ax, label='$E$ (dust reddening)')
+        fig.colorbar(sm, ax=ax, label='$E$ (dust reddening)' if verbose else '$E$')
     plt.tight_layout()
     # plt.close(fig)
 
@@ -245,7 +245,8 @@ def extinguished_magnitude_color_distribution_animation(
     chain_data: GibbsChainData,
     start_idx: int = 0, stop_idx: int = None,
     title: str = None,
-    step_stride: int = 500, color_dust: bool = False
+    step_stride: int = 500, color_dust: bool = True,
+    verbose: bool = False
 ):
     """
     Animate the evolution of the *extinguished* SN population:
@@ -286,9 +287,9 @@ def extinguished_magnitude_color_distribution_animation(
 
     ax.set_xlim(c_min - pad_c, c_max + pad_c)
     ax.set_ylim(M_max + pad_M, M_min - pad_M)  # reversed y-axis for magnitudes
-    ax.set_xlabel("Apparent color $c_{\\rm app}$")
-    ax.set_ylabel("Stretch-corrected extinguished magnitude $M_{\\rm ext} - \\alpha x$")
-    if title is None:
+    ax.set_xlabel("Apparent color $c_{\\rm app}$" if verbose else '$c_{\\rm app}$')
+    ax.set_ylabel("Stretch-corrected extinguished magnitude $M_{\\rm ext} - \\alpha x$" if verbose else '$M_{\\rm ext} - \\alpha x$')
+    if title is None and verbose:
         ax.set_title("Evolution of extinguished population and $R_B$")
     else:
         ax.set_title(title)
@@ -332,7 +333,7 @@ def extinguished_magnitude_color_distribution_animation(
                          init_func=init, blit=True, interval=150)
     if color_dust:
         sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
-        fig.colorbar(sm, ax=ax, label='$E$ (dust reddening)')
+        fig.colorbar(sm, ax=ax, label='$E$ (dust reddening)' if verbose else '$E$')
     plt.tight_layout()
     return anim, fig
 
