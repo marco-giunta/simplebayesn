@@ -395,3 +395,172 @@ def compare_posterior_cornerplots(chains: list[GibbsChainData],
         )
 
     return fig
+
+def intrinsic_magnitude_color_distribution_frame(
+    chain_data: GibbsChainData,
+    iteration: int,
+    start_idx: int = 0,
+    stop_idx: int = None,
+    title: str = None,
+    color_dust: bool = True,
+    verbose: bool = False,
+):
+    """
+    Plot a single MCMC iteration of the intrinsic SN population:
+    intrinsic color (c_int) vs. stretch-corrected intrinsic magnitude,
+    including the beta_int slope line.
+    """
+
+    gp = chain_data[start_idx:stop_idx]['global_params']
+    lp = chain_data[start_idx:stop_idx]['latent_params']
+
+    c_int = lp['c_app'] - lp['E']
+    M_int = lp['m_app'] - (lp['dist_mod'] + gp['RB'][:, np.newaxis] * lp['E'])
+    M_int_ax = M_int - gp['alpha'][:, np.newaxis] * lp['x']
+
+    beta_int = gp['beta_int']
+
+    num_iter = len(beta_int)
+    if iteration < 0 or iteration >= num_iter:
+        raise IndexError(f"iteration must be in [0, {num_iter-1}]")
+
+    c_min, c_max = c_int.min(), c_int.max()
+    M_min, M_max = M_int_ax.min(), M_int_ax.max()
+    pad_c = 0.02 * (c_max - c_min) if c_max != c_min else 0.01
+    pad_M = 0.02 * (M_max - M_min) if M_max != M_min else 0.1
+
+    c = c_int[iteration, :]
+    M = M_int_ax[iteration, :]
+    b = beta_int[iteration]
+
+    fig, ax = plt.subplots(figsize=(6, 5))
+
+    if color_dust:
+        norm = plt.Normalize(vmin=lp['E'].min(), vmax=lp['E'].max())
+        cmap = plt.cm.inferno
+        scat = ax.scatter(
+            c, M, s=10, alpha=0.6,
+            c=lp['E'][iteration], cmap=cmap, norm=norm
+        )
+        sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
+        fig.colorbar(sm, ax=ax,
+                     label='$E$ (dust reddening)' if verbose else '$E$')
+    else:
+        scat = ax.scatter(c, M, s=10, alpha=0.6, color='k')
+
+    # slope line centered at medians
+    xvals = np.linspace(c_min - pad_c, c_max + pad_c, 200)
+    m0 = np.median(M)
+    c0 = np.median(c)
+    yvals = m0 + b * (xvals - c0)
+
+    ax.plot(
+        xvals,
+        yvals,
+        lw=2,
+        color="C0" if b > 0 else "C3"
+    )
+
+    ax.set_xlim(c_min - pad_c, c_max + pad_c)
+    ax.set_ylim(M_max + pad_M, M_min - pad_M)  # reversed y-axis
+
+    ax.set_xlabel(
+        "Intrinsic color $c_{\\rm int}$" if verbose else "$c_{\\rm int}$"
+    )
+    ax.set_ylabel(
+        "Stretch corrected intrinsic magnitude $M_{\\rm int}-\\alpha x$"
+        if verbose else "$M_{\\rm int}-\\alpha x$"
+    )
+
+    if title is None and verbose:
+        ax.set_title("Intrinsic population snapshot")
+    else:
+        ax.set_title(title)
+
+    ax.text(
+        0.02, 0.98,
+        f"iter: {start_idx + iteration}\n"
+        + "$\\beta_{\\rm int}$ = "
+        + f"{b:+.3f}",
+        transform=ax.transAxes,
+        va="top", ha="left"
+    )
+
+    plt.tight_layout()
+    return fig, ax
+
+def extinguished_magnitude_color_distribution_frame(
+    chain_data: GibbsChainData,
+    iteration: int,
+    start_idx: int = 0,
+    stop_idx: int = None,
+    title: str = None,
+    color_dust: bool = False,
+    verbose: bool = False
+):
+    """
+    Plot a single MCMC iteration of the extinguished SN population:
+    apparent color (c_app) vs. stretch-corrected extinguished magnitude,
+    including the R_B slope line.
+    """
+
+    gp = chain_data[start_idx:stop_idx]['global_params']
+    lp = chain_data[start_idx:stop_idx]['latent_params']
+
+    num_iter = len(gp['RB'])
+    if iteration < 0 or iteration >= num_iter:
+        raise IndexError(f"iteration must be in [0, {num_iter-1}]")
+
+    c_app = lp['c_app']                         # (n_iter, n_SN)
+    M_ext = lp['m_app'] - lp['dist_mod']        # (n_iter, n_SN)
+    M_ext_ax = M_ext - gp['alpha'][:, np.newaxis] * lp['x']
+    RB = gp['RB']
+
+    c = c_app[iteration, :]
+    M = M_ext_ax[iteration, :]
+    rB = RB[iteration]
+
+    # define plot bounds with small padding
+    c_min, c_max = c_app.min(), c_app.max()
+    M_min, M_max = M_ext_ax.min(), M_ext_ax.max()
+    pad_c = 0.02 * (c_max - c_min) if c_max != c_min else 0.01
+    pad_M = 0.02 * (M_max - M_min) if M_max != M_min else 0.1
+
+    fig, ax = plt.subplots(figsize=(6, 5))
+
+    if color_dust:
+        norm = plt.Normalize(vmin=lp['E'].min(), vmax=lp['E'].max())
+        cmap = plt.cm.inferno
+        scat = ax.scatter(c, M, s=10, alpha=0.6,
+                          c=lp['E'][iteration], cmap=cmap, norm=norm)
+        sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
+        fig.colorbar(sm, ax=ax, label='$E$ (dust reddening)' if verbose else '$E$')
+    else:
+        scat = ax.scatter(c, M, s=10, alpha=0.6, color='k')
+
+    # slope line centered at medians
+    xvals = np.linspace(c_min - pad_c, c_max + pad_c, 200)
+    m0 = np.median(M)
+    c0 = np.median(c)
+    yvals = m0 + rB * (xvals - c0)
+    ax.plot(xvals, yvals, lw=2, color="C0")
+
+    ax.set_xlim(c_min - pad_c, c_max + pad_c)
+    ax.set_ylim(M_max + pad_M, M_min - pad_M)  # reversed y-axis
+    ax.set_xlabel("Apparent color $c_{\\rm app}$" if verbose else '$c_{\\rm app}$')
+    ax.set_ylabel("Stretch-corrected extinguished magnitude $M_{\\rm ext} - \\alpha x$" if verbose else '$M_{\\rm ext} - \\alpha x$')
+
+    if title is None and verbose:
+        ax.set_title("Extinguished population snapshot")
+    else:
+        ax.set_title(title)
+
+    ax.text(
+        0.02, 0.98,
+        f"iter: {start_idx + iteration}\n$R_B$ = {rB:.2f}",
+        transform=ax.transAxes,
+        va="top", ha="left"
+    )
+
+    plt.tight_layout()
+    return fig, ax
