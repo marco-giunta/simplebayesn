@@ -8,8 +8,9 @@ from pathlib import Path
 from argparse import ArgumentParser
 
 # data obtained using git clone https://github.com/djones1040/Foundation_DR1.git
-# official cosmo sample SALT2 fit:
-# astropy.table.Table.read('./Foundation_DR1/Foundation_DR1.FITRES.TEXT', format='ascii').to_pandas()
+# The official cosmo sample SALT2 fit can be read using:
+# df = astropy.table.Table.read('./Foundation_DR1/Foundation_DR1.FITRES.TEXT', format='ascii').to_pandas()
+# Here we replicate the SALT fit for both the cosmo and no cosmo samples.
 
 def foundation_salt_fit(argv = None):
     parser = ArgumentParser(
@@ -17,7 +18,7 @@ def foundation_salt_fit(argv = None):
     )
     parser.add_argument('-i', '--input', type = str, help = 'Path of the Foundation_DR1 folder')
     parser.add_argument('-o', '--output', type = str, help = 'Path of output .csv file')
-    parser.add_argument('-s', '--salt', type = str, help = 'Path of SALT2.JLA-B14 folder')
+    parser.add_argument('-s', '--salt', type = str, help = 'Path of SALT2.JLA-B14 snana folder (source: snana/models/SALT2/SALT2.JLA-B14)')
 
     args = parser.parse_args(argv)
 
