@@ -168,7 +168,9 @@ def intrinsic_magnitude_color_distribution_animation(chain_data: GibbsChainData,
                                                      start_idx: int = 0, stop_idx: int = None,
                                                      title: str = None,
                                                      step_stride: int = 500, color_dust: bool = True,
-                                                     verbose: bool = False):
+                                                     verbose: bool = False,
+                                                     labels_fontsize = 12, title_fontsize = 14,
+                                                     ticks_fontsize = 11, text_fontsize = 11):
     gp = chain_data[start_idx:stop_idx]['global_params']
     lp = chain_data[start_idx:stop_idx]['latent_params']
 
@@ -194,16 +196,18 @@ def intrinsic_magnitude_color_distribution_animation(chain_data: GibbsChainData,
     fig, ax = plt.subplots(figsize=(6, 5))
     scat = ax.scatter([], [], s=10, alpha=0.6, color='k')
     line, = ax.plot([], [], lw=2)
-    text = ax.text(0.02, 0.98, "", transform=ax.transAxes, va="top", ha="left")
+    text = ax.text(0.02, 0.98, "", transform=ax.transAxes, va="top", ha="left", fontsize = text_fontsize)
 
     ax.set_xlim(c_min - pad_c, c_max + pad_c)
     ax.set_ylim(M_max + pad_M, M_min - pad_M)  # reversed y-axis for magnitudes (bright up)
-    ax.set_xlabel("Intrinsic color $c_{\\rm int}$" if verbose else '$c_{\\rm int}$')
-    ax.set_ylabel("Stretch corrected intrinsic magnitude $M_{\\rm int}-\\alpha x$" if verbose else '$M_{\\rm int}-\\alpha x$')
+    ax.set_xlabel("Intrinsic color $c_{\\rm int}$" if verbose else '$c_{\\rm int}$',
+                  fontsize = labels_fontsize)
+    ax.set_ylabel("Stretch corrected intrinsic magnitude $M_{\\rm int}-\\alpha x$" if verbose else '$M_{\\rm int}-\\alpha x$',
+                  fontsize = labels_fontsize)
     if title is None and verbose:
-        ax.set_title("Evolution of intrinsic population and $\\beta_{\\rm int}$")
+        ax.set_title("Evolution of intrinsic population and $\\beta_{\\rm int}$", fontsize = title_fontsize)
     else:
-        ax.set_title(title)
+        ax.set_title(title, fontsize = title_fontsize)
 
     xvals = np.linspace(c_min - pad_c, c_max + pad_c, 200)
 
@@ -230,12 +234,18 @@ def intrinsic_magnitude_color_distribution_animation(chain_data: GibbsChainData,
         line.set_data(xvals, yvals)
         line.set_color("C0" if b > 0 else "C3")
 
-        text.set_text(f"iter: {step}\n" + "$\\beta_{\\rm int}$ = " + f"{b:+.3f}")
+        text.set_text(f"iter: {start_idx + step}\n" + "$\\beta_{\\rm int}$ = " + f"{b:+.3f}")
         return scat, line, text
     anim = FuncAnimation(fig, update, frames=num_frames, init_func=init, blit=True, interval=150)
     if color_dust:
         sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
-        fig.colorbar(sm, ax=ax, label='$E$ (dust reddening)' if verbose else '$E$')
+        cbar = fig.colorbar(sm, ax=ax)
+        cbar.set_label(label='$E$ (dust reddening)' if verbose else '$E$',
+                       fontsize = labels_fontsize)
+        cbar.ax.tick_params(labelsize = ticks_fontsize)
+
+    ax.tick_params(axis = 'both', labelsize = ticks_fontsize)
+
     plt.tight_layout()
     # plt.close(fig)
 
@@ -246,7 +256,9 @@ def extinguished_magnitude_color_distribution_animation(
     start_idx: int = 0, stop_idx: int = None,
     title: str = None,
     step_stride: int = 500, color_dust: bool = True,
-    verbose: bool = False
+    verbose: bool = False,
+    labels_fontsize = 12, title_fontsize = 14,
+    ticks_fontsize = 11, text_fontsize = 11
 ):
     """
     Animate the evolution of the *extinguished* SN population:
@@ -283,16 +295,18 @@ def extinguished_magnitude_color_distribution_animation(
     fig, ax = plt.subplots(figsize=(6, 5))
     scat = ax.scatter([], [], s=10, alpha=0.6, color='k')
     line, = ax.plot([], [], lw=2)
-    text = ax.text(0.02, 0.98, "", transform=ax.transAxes, va="top", ha="left")
+    text = ax.text(0.02, 0.98, "", transform=ax.transAxes, va="top", ha="left", fontsize = text_fontsize)
 
     ax.set_xlim(c_min - pad_c, c_max + pad_c)
     ax.set_ylim(M_max + pad_M, M_min - pad_M)  # reversed y-axis for magnitudes
-    ax.set_xlabel("Apparent color $c_{\\rm app}$" if verbose else '$c_{\\rm app}$')
-    ax.set_ylabel("Stretch-corrected extinguished magnitude $M_{\\rm ext} - \\alpha x$" if verbose else '$M_{\\rm ext} - \\alpha x$')
+    ax.set_xlabel("Apparent color $c_{\\rm app}$" if verbose else '$c_{\\rm app}$',
+                  fontsize = labels_fontsize)
+    ax.set_ylabel("Stretch-corrected extinguished magnitude $M_{\\rm ext} - \\alpha x$" if verbose else '$M_{\\rm ext} - \\alpha x$',
+                  fontsize = labels_fontsize)
     if title is None and verbose:
-        ax.set_title("Evolution of extinguished population and $R_B$")
+        ax.set_title("Evolution of extinguished population and $R_B$", fontsize = title_fontsize)
     else:
-        ax.set_title(title)
+        ax.set_title(title, fontsize = title_fontsize)
 
     xvals = np.linspace(c_min - pad_c, c_max + pad_c, 200)
 
@@ -333,7 +347,13 @@ def extinguished_magnitude_color_distribution_animation(
                          init_func=init, blit=True, interval=150)
     if color_dust:
         sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
-        fig.colorbar(sm, ax=ax, label='$E$ (dust reddening)' if verbose else '$E$')
+        cbar = fig.colorbar(sm, ax=ax)
+        cbar.set_label(label='$E$ (dust reddening)' if verbose else '$E$',
+                       fontsize = labels_fontsize)
+        cbar.ax.tick_params(labelsize = ticks_fontsize)
+
+    ax.tick_params(axis = 'both', labelsize = ticks_fontsize)
+
     plt.tight_layout()
     return anim, fig
 
@@ -404,6 +424,10 @@ def intrinsic_magnitude_color_distribution_frame(
     title: str = None,
     color_dust: bool = True,
     verbose: bool = False,
+    labels_fontsize = 12,
+    title_fontsize = 14,
+    ticks_fontsize = 11,
+    text_fontsize = 11
 ):
     """
     Plot a single MCMC iteration of the intrinsic SN population:
@@ -443,8 +467,10 @@ def intrinsic_magnitude_color_distribution_frame(
             c=lp['E'][iteration], cmap=cmap, norm=norm
         )
         sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
-        fig.colorbar(sm, ax=ax,
-                     label='$E$ (dust reddening)' if verbose else '$E$')
+        cbar = fig.colorbar(sm, ax=ax)
+        cbar.set_label(label='$E$ (dust reddening)' if verbose else '$E$',
+                       fontsize = labels_fontsize)
+        cbar.ax.tick_params(labelsize = ticks_fontsize)
     else:
         scat = ax.scatter(c, M, s=10, alpha=0.6, color='k')
 
@@ -465,17 +491,19 @@ def intrinsic_magnitude_color_distribution_frame(
     ax.set_ylim(M_max + pad_M, M_min - pad_M)  # reversed y-axis
 
     ax.set_xlabel(
-        "Intrinsic color $c_{\\rm int}$" if verbose else "$c_{\\rm int}$"
+        "Intrinsic color $c_{\\rm int}$" if verbose else "$c_{\\rm int}$",
+        fontsize = labels_fontsize
     )
     ax.set_ylabel(
         "Stretch corrected intrinsic magnitude $M_{\\rm int}-\\alpha x$"
-        if verbose else "$M_{\\rm int}-\\alpha x$"
+        if verbose else "$M_{\\rm int}-\\alpha x$",
+        fontsize = labels_fontsize
     )
 
     if title is None and verbose:
-        ax.set_title("Intrinsic population snapshot")
+        ax.set_title("Intrinsic population snapshot", fontsize = title_fontsize)
     else:
-        ax.set_title(title)
+        ax.set_title(title, fontsize = title_fontsize)
 
     ax.text(
         0.02, 0.98,
@@ -483,8 +511,11 @@ def intrinsic_magnitude_color_distribution_frame(
         + "$\\beta_{\\rm int}$ = "
         + f"{b:+.3f}",
         transform=ax.transAxes,
-        va="top", ha="left"
+        va="top", ha="left",
+        fontsize = text_fontsize
     )
+
+    ax.tick_params(axis = 'both', labelsize = ticks_fontsize)
 
     plt.tight_layout()
     return fig, ax
@@ -496,7 +527,11 @@ def extinguished_magnitude_color_distribution_frame(
     stop_idx: int = None,
     title: str = None,
     color_dust: bool = False,
-    verbose: bool = False
+    verbose: bool = False,
+    labels_fontsize = 12,
+    title_fontsize = 14,
+    ticks_fontsize = 11,
+    text_fontsize = 11
 ):
     """
     Plot a single MCMC iteration of the extinguished SN population:
@@ -534,7 +569,10 @@ def extinguished_magnitude_color_distribution_frame(
         scat = ax.scatter(c, M, s=10, alpha=0.6,
                           c=lp['E'][iteration], cmap=cmap, norm=norm)
         sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
-        fig.colorbar(sm, ax=ax, label='$E$ (dust reddening)' if verbose else '$E$')
+        cbar = fig.colorbar(sm, ax=ax)
+        cbar.set_label(label='$E$ (dust reddening)' if verbose else '$E$',
+                       fontsize = labels_fontsize)
+        cbar.ax.tick_params(labelsize = ticks_fontsize)
     else:
         scat = ax.scatter(c, M, s=10, alpha=0.6, color='k')
 
@@ -547,20 +585,29 @@ def extinguished_magnitude_color_distribution_frame(
 
     ax.set_xlim(c_min - pad_c, c_max + pad_c)
     ax.set_ylim(M_max + pad_M, M_min - pad_M)  # reversed y-axis
-    ax.set_xlabel("Apparent color $c_{\\rm app}$" if verbose else '$c_{\\rm app}$')
-    ax.set_ylabel("Stretch-corrected extinguished magnitude $M_{\\rm ext} - \\alpha x$" if verbose else '$M_{\\rm ext} - \\alpha x$')
+    ax.set_xlabel(
+        "Apparent color $c_{\\rm app}$" if verbose else '$c_{\\rm app}$',
+        fontsize = labels_fontsize
+    )
+    ax.set_ylabel(
+        "Stretch-corrected extinguished magnitude $M_{\\rm ext} - \\alpha x$" if verbose else '$M_{\\rm ext} - \\alpha x$',
+        fontsize = labels_fontsize
+    )
 
     if title is None and verbose:
-        ax.set_title("Extinguished population snapshot")
+        ax.set_title("Extinguished population snapshot", fontsize = title_fontsize)
     else:
-        ax.set_title(title)
+        ax.set_title(title, fontsize = title_fontsize)
 
     ax.text(
         0.02, 0.98,
         f"iter: {start_idx + iteration}\n$R_B$ = {rB:.2f}",
         transform=ax.transAxes,
-        va="top", ha="left"
+        va="top", ha="left",
+        fontsize = text_fontsize
     )
+
+    ax.tick_params(axis = 'both', labelsize = ticks_fontsize)
 
     plt.tight_layout()
     return fig, ax
