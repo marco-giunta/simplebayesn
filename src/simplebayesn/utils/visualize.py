@@ -196,7 +196,7 @@ def intrinsic_magnitude_color_distribution_animation(chain_data: GibbsChainData,
     fig, ax = plt.subplots(figsize=(6, 5))
     scat = ax.scatter([], [], s=10, alpha=0.6, color='k')
     line, = ax.plot([], [], lw=2)
-    text = ax.text(0.02, 0.98, "", transform=ax.transAxes, va="top", ha="left", fontsize = text_fontsize)
+    text = ax.text(0.75, 0.98, "", transform=ax.transAxes, va="top", ha="left", fontsize = text_fontsize)
 
     ax.set_xlim(c_min - pad_c, c_max + pad_c)
     ax.set_ylim(M_max + pad_M, M_min - pad_M)  # reversed y-axis for magnitudes (bright up)
@@ -295,7 +295,7 @@ def extinguished_magnitude_color_distribution_animation(
     fig, ax = plt.subplots(figsize=(6, 5))
     scat = ax.scatter([], [], s=10, alpha=0.6, color='k')
     line, = ax.plot([], [], lw=2)
-    text = ax.text(0.02, 0.98, "", transform=ax.transAxes, va="top", ha="left", fontsize = text_fontsize)
+    text = ax.text(0.75, 0.98, "", transform=ax.transAxes, va="top", ha="left", fontsize = text_fontsize)
 
     ax.set_xlim(c_min - pad_c, c_max + pad_c)
     ax.set_ylim(M_max + pad_M, M_min - pad_M)  # reversed y-axis for magnitudes
@@ -506,7 +506,7 @@ def intrinsic_magnitude_color_distribution_frame(
         ax.set_title(title, fontsize = title_fontsize)
 
     ax.text(
-        0.02, 0.98,
+        0.75, 0.98,
         f"iter: {start_idx + iteration}\n"
         + "$\\beta_{\\rm int}$ = "
         + f"{b:+.3f}",
@@ -600,7 +600,7 @@ def extinguished_magnitude_color_distribution_frame(
         ax.set_title(title, fontsize = title_fontsize)
 
     ax.text(
-        0.02, 0.98,
+        0.75, 0.98,
         f"iter: {start_idx + iteration}\n$R_B$ = {rB:.2f}",
         transform=ax.transAxes,
         va="top", ha="left",
