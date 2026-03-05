@@ -30,7 +30,7 @@ def foundation_salt_fit(argv = None):
         raise ValueError('Please provide the input folder, not a file path')
     
     if fnd_csv_path.suffix != '.csv':
-        raise ValueError('Pleaase provide the output .csv file path')
+        raise ValueError('Please provide the output .csv file path')
     
     os.makedirs(fnd_csv_path.parent, exist_ok = True)
 
@@ -116,6 +116,7 @@ def foundation_salt_fit(argv = None):
     fnd_no_cosmo['sample'] = 'no_cosmo'
 
     fnd_all = pd.concat([fnd_cosmo, fnd_no_cosmo], ignore_index = True)
+    fnd_all['mB'] = 10.635-2.5*np.log10(fnd_all['x0'])
     fnd_all.to_csv(fnd_csv_path, index = False)
 
 if __name__ == '__main__':
