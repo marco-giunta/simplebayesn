@@ -63,6 +63,9 @@ def ztf_foundation_mb_c(argv = None):
 
     ax.axvline(0.3, color = 'gray', linestyle = '--', alpha = 0.5, label = '$c=\\pm 0.3$')
     ax.axvline(-0.3, color = 'gray', linestyle = '--', alpha = 0.5)
+    ax.axvspan(ax.get_xlim()[0], -0.3, color = 'gray', alpha = 0.1, zorder = 0)
+    ax.axvspan(0.3, ax.get_xlim()[1], color = 'gray', alpha = 0.1, zorder = 0)
+
     ax.set_xlabel('$c$', fontsize = 15)
     ax.set_ylabel('$m_B$', fontsize = 15)
     ax.legend(fontsize = 12)
