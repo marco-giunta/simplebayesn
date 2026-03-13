@@ -26,12 +26,17 @@ def ztf_gibbs_posterior_cornerplot(argv = None):
     gd_ztf = simplebayesn.load_gibbs_data(gd_ztf_h5_path)
 
     print('Plotting complete cornerplot...')
-    fig = simplebayesn.visualize.posterior_cornerplot(gd_ztf, start_idx = 1000)
+    fig = simplebayesn.visualize.posterior_cornerplot(gd_ztf, start_idx = 1000,
+                                                      contours_color = 'C1',
+                                                      mean_color = 'black')
     fig.savefig(fig_path / Path('ztf_cornerplot.pdf'))
 
     print('Plotting color cornerplot...')
     pp = ['tau', 'RB', 'c0_int', 'sigmac_int2', 'beta_int']
-    fig = simplebayesn.visualize.posterior_cornerplot(gd_ztf, start_idx = 1000, params_to_plot = pp)
+    fig = simplebayesn.visualize.posterior_cornerplot(gd_ztf, start_idx = 1000,
+                                                      contours_color = 'C1',
+                                                      mean_color = 'black',
+                                                      params_to_plot = pp)
     fig.savefig(fig_path / Path('ztf_color_params_cornerplot.pdf'))
 
 if __name__ == '__main__':
