@@ -61,13 +61,15 @@ def ztf_foundation_mb_c(argv = None):
     ax.scatter(fnd_cosmo.c, fnd_cosmo.mB, alpha = 0.5, s = 20, label = f'Foundation (cosmo) ({len(fnd_cosmo)} SNe)', color = FND_COSMO_COLOR, edgecolors = 'k', linewidths = 0.5)
     ax.scatter(fnd_nocosmo.c, fnd_nocosmo.mB, alpha = 0.8, s = 30, label = f'Foundation (no cosmo) ({len(fnd_nocosmo)} SNe)', color = FND_NOCOSMO_COLOR, marker = 'x', linewidths = 1.5)
 
+    c_min_plot, c_max_plot = -0.4, 1.1
+    ax.set_xlim(c_min_plot, c_max_plot)
     ax.axvline(0.3, color = 'gray', linestyle = '--', alpha = 0.5, label = '$c=\\pm 0.3$')
     ax.axvline(-0.3, color = 'gray', linestyle = '--', alpha = 0.5)
-    ax.axvspan(ax.get_xlim()[0], -0.3, color = 'gray', alpha = 0.1, zorder = 0)
-    ax.axvspan(0.3, ax.get_xlim()[1], color = 'gray', alpha = 0.1, zorder = 0)
+    ax.axvspan(0.3, c_max_plot, color = 'gray', alpha = 0.1, zorder = 0)
+    ax.axvspan(c_min_plot, -0.3, color = 'gray', alpha = 0.1, zorder = 0)
 
-    ax.set_xlabel('$c$', fontsize = 15)
-    ax.set_ylabel('$m_B$', fontsize = 15)
+    ax.set_xlabel('$\\hat{c}$', fontsize = 15)
+    ax.set_ylabel('$\\hat{m}_B$', fontsize = 15)
     ax.legend(fontsize = 12)
     ax.invert_yaxis()
     ax.tick_params(axis = 'both', labelsize = 11)
@@ -90,6 +92,8 @@ def ztf_foundation_mb_c(argv = None):
     ax_top.fill_between(c_range, kde_fnd_nocosmo_c(c_range), alpha = FILL_ALPHA, color = FND_NOCOSMO_COLOR)
     ax_top.axvline(0.3, color = 'gray', linestyle = '--', alpha = 0.5)
     ax_top.axvline(-0.3, color = 'gray', linestyle = '--', alpha = 0.5)
+    ax_top.axvspan(0.3, c_max_plot, color = 'gray', alpha = 0.1, zorder = 0)
+    ax_top.axvspan(c_min_plot, -0.3, color = 'gray', alpha = 0.1, zorder = 0)
     ax_top.set_ylabel('Density', fontsize = 12)
     ax_top.tick_params(labelbottom = False)
     ax_top.legend(fontsize = 9, loc = 'upper right')
