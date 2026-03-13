@@ -74,7 +74,9 @@ def ztf_gibbs_latent_plot(argv = None):
     plot_latent_bias(gd_ztf, host_vec = globalhost.mass, host_vec_err = globalhost.mass_err,
                      xlabel = '$\\log M_{\\rm glob}$', xval = 10,
                      start_idx = 1000,
-                     extra_hlines = {2: (0.03, 'left')}).savefig(
+                     extra_hlines = {2: (0.03, 'left')},
+                     pop1_color = '#3778bf', pop2_color = '#e05c3a',
+                     hline_color = '#444444', vline_color = '#444444').savefig(
                         fig_path / Path('ztf_latents_globalhost.pdf')
                      )
 
@@ -83,7 +85,9 @@ def ztf_gibbs_latent_plot(argv = None):
                      xlabel = '$\\log M_{\\rm glob}$', xval = 10,
                      color_vec = globalhost.d_dlr, color_vec_split_value = 1,
                      start_idx = 1000, clabel = '$dDLR$',
-                     extra_hlines = {2: (0.03, 'left')}).savefig(
+                     extra_hlines = {2: (0.03, 'left')},
+                     pop1_color = '#3778bf', pop2_color = '#e05c3a',
+                     hline_color = '#444444', vline_color = '#444444').savefig(
                         fig_path / Path('ztf_latents_globalhost_ddlr.pdf')
                      )
 
@@ -92,7 +96,9 @@ def ztf_gibbs_latent_plot(argv = None):
                      xlabel = '$dDLR$', xval = 1,
                      start_idx = 1000,
                      x_min = -0.1,
-                     extra_hlines = {2: (0.03, 'right')}).savefig(
+                     extra_hlines = {2: (0.03, 'right')},
+                     pop1_color = '#2a9d8f', pop2_color = '#e76f51',
+                     hline_color = '#555555', vline_color = '#555555').savefig(
                         fig_path / Path('ztf_latents_ddlr.pdf')
                      )
 
@@ -102,7 +108,9 @@ def ztf_gibbs_latent_plot(argv = None):
                      color_vec = globalhost.mass, color_vec_split_value = 10,
                      start_idx = 1000, clabel = '$\\log M_{\\rm glob}$',
                      x_min = -0.1,
-                     extra_hlines = {2: (0.03, 'right')}).savefig(
+                     extra_hlines = {2: (0.03, 'right')},
+                     pop1_color = '#2a9d8f', pop2_color = '#e76f51',
+                     hline_color = '#555555', vline_color = '#555555').savefig(
                         fig_path / Path('ztf_latents_ddlr_globalhost.pdf')
                      )
 
