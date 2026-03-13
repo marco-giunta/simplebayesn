@@ -1,6 +1,5 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from matplotlib.lines import Line2D
 from corner import corner
 import seaborn as sns
 from ..utils.data import GibbsChainData
@@ -611,3 +610,150 @@ def extinguished_magnitude_color_distribution_frame(
 
     plt.tight_layout()
     return fig, ax
+
+def plot_latent_bias(chain: GibbsChainData,
+                     host_vec: np.ndarray, host_vec_err: np.ndarray = None,
+                     xlabel: str = None, xval: float = None,
+                     color_vec: np.ndarray = None, color_vec_split_value: float = None, clabel: str = None,
+                     start_idx: int = 0, stop_idx: int = None,
+                     x_min: float = None, x_max: float = None,
+                     markersize = 15, pop1_color: str = '#3778bf', pop2_color: str = '#e05c3a',
+                     n_bins_trend: int = 10, trend_color: str = "#1E1E1E", bin_capsize = 3, bin_markersize = 5,
+                     n_bins_hist: int = 20, hist_color: str = '#aaaaaa', hist_edge_color: str = '#666666',
+                     hline_color: str = '#444444', vline_color: str = '#444444',
+                     extra_hlines: dict = None,
+                     legend_fontsize: int = 10,
+                     figsize = (10,15)):
+    
+    def add_binned_trend(ax, x, y, yerr):
+        x, y, yerr = np.asarray(x), np.asarray(y), np.asarray(yerr)
+
+        bins = np.linspace(x.min(), x.max(), n_bins_trend + 1)
+        bin_centers, bin_means, bin_errs = np.zeros(n_bins_trend), np.zeros(n_bins_trend), np.zeros(n_bins_trend)
+
+        for i in range(n_bins_trend):
+            mask = (x >= bins[i]) & (x < bins[i+1])
+            if mask.sum() < 2:
+                continue # at least 2 points per bin to compute var
+            w = 1 / yerr[mask]**2
+            mean = np.average(y[mask], weights=w)
+
+            # standard error^2 of weighted mean
+            var_mean = 1 / w.sum() # sum of 1/var
+            # weighted var of the points around the mean
+            var_weighted = np.average((y[mask] - mean)**2, weights=w)
+            # combined: intrinsic data point scatter + uncertainty on the mean
+            err = np.sqrt(var_mean + var_weighted)
+
+            bin_centers[i] = (bins[i] + bins[i+1]) / 2
+            bin_means[i] = mean
+            bin_errs[i] = err
+
+        ax.errorbar(bin_centers, bin_means, yerr = bin_errs,
+                    fmt = 's-', color = trend_color, capsize = bin_capsize,
+                    markersize = bin_markersize, lw = 1.5, zorder = 5)
+
+    def plot_points(ax, y, yerr):
+        # errorbars first (behind markers)
+        ax.errorbar(host_vec, y, xerr=host_vec_err, yerr=yerr,
+                    fmt='none', ecolor='grey', alpha=0.3, zorder=1)
+        # points with color scattered on top of point-less grey errorbars
+        if color_vec is not None and color_vec_split_value is not None:
+            color_mask = color_vec <= color_vec_split_value
+            ax.scatter(host_vec[color_mask], y[color_mask], c = pop1_color,
+                       s = markersize, alpha = 0.7, zorder = 2)
+            ax.scatter(host_vec[~color_mask], y[~color_mask], c=pop2_color,
+                       s = markersize, alpha = 0.7, zorder = 2)
+        else:
+            ax.scatter(host_vec, y, c = pop1_color, s = markersize, alpha = 0.7, zorder = 2)
+        add_binned_trend(ax, host_vec, y, yerr)
+
+    if host_vec_err is None:
+        host_vec_err = np.zeros_like(host_vec)
+
+    if xval == 'median':
+        xval = np.median(host_vec)
+    elif xval == 'mean':
+        xval = np.mean(host_vec)
+
+    a_x = chain.alpha[start_idx:stop_idx][:, None] * chain.x[start_idx:stop_idx]
+    alpha_x = np.mean(a_x, axis = 0)
+    alpha_x_err = np.std(a_x, axis = 0)
+    
+    b_c = chain.beta_int[start_idx:stop_idx][:, None] * (chain.c_app - chain.E)[start_idx:stop_idx]
+    beta_int_c = np.mean(b_c, axis = 0)
+    beta_int_c_err = np.std(b_c, axis = 0)
+    
+    r_e = chain.RB[start_idx:stop_idx][:, None] * chain.E[start_idx:stop_idx]
+    RB_E = np.mean(r_e, axis = 0)
+    RB_E_err = np.std(r_e, axis = 0)
+
+    d_m = (chain.m_app - chain.dist_mod - chain.RB[:, None] * chain.E) - \
+        (chain.M0_int[:, None] + chain.alpha[:, None] * chain.x + chain.beta_int[:, None] * (chain.c_app - chain.E))
+
+    delta_M = np.mean(d_m[start_idx:stop_idx], axis = 0)
+    delta_M_err = np.std(d_m[start_idx:stop_idx], axis = 0)
+
+    fig, ax = plt.subplots(nrows = 5, ncols = 1, sharex = True,
+                           figsize = figsize)
+    
+    ax[0].hist(host_vec, density = True, bins = n_bins_hist,
+               color = hist_color, edgecolor = hist_edge_color, linewidth = 0.5)
+    ax[0].set_ylabel(f'{xlabel} density')
+
+    plot_points(ax[1], alpha_x, alpha_x_err)
+    ax[1].set_ylabel('$\\alpha x$')
+
+    plot_points(ax[2], beta_int_c, beta_int_c_err)
+    ax[2].set_ylabel('$\\beta_{\\rm int} c_{\\rm int}$')
+
+    plot_points(ax[3], RB_E, RB_E_err)
+    ax[3].set_ylabel('$R_B E$')
+
+    plot_points(ax[4], delta_M, delta_M_err)
+    ax[4].set_ylabel('$\\Delta M_{\\rm int}$')
+
+    ax[4].set_xlabel(xlabel)
+    if color_vec is not None and color_vec_split_value is not None:
+        clbl = clabel if clabel is not None else ''
+        legend_elements = [
+            Patch(facecolor = pop1_color, label = clbl + f'$\\leq {color_vec_split_value}$'),
+            Patch(facecolor = pop2_color, label = clbl + f'$> {color_vec_split_value}$'),
+        ]
+        ax[0].legend(handles = legend_elements, fontsize = legend_fontsize, framealpha = 0.7)
+
+    x0, x1 = ax[4].get_xlim()
+    if x_min is not None:
+        x0 = x_min
+    if x_max is not None:
+        x1 = x_max
+
+    ax[0].set_xlim(x0, x1)
+
+    ax[4].hlines(y = 0, xmin = x0, xmax = x1, linestyle = 'dashed',
+                 colors = hline_color, zorder = 10, lw = 1)
+    
+    if extra_hlines is not None:
+        for panel_idx, (val, pos) in extra_hlines.items():
+            ax[panel_idx].hlines(y = val, xmin = x0, xmax = x1, linestyle = 'dashed',
+                                 colors = hline_color, zorder = 10, lw = 1)
+            if pos == 'left':
+                xt = x0 + 0.3
+            elif pos == 'right':
+                xt = x1 - 0.1
+            else:
+                continue
+            ax[panel_idx].text(xt, val, f'{val}', color = hline_color,
+                               fontsize = 10, ha = 'right', va = 'bottom')
+
+    if xval is not None:
+        for a in ax[1:]:
+            a.vlines(x = xval, ymin = a.get_ylim()[0], ymax = a.get_ylim()[1], linestyle = 'dashed',
+                    colors = vline_color, zorder = 10, lw = 1)
+            
+        # ax[4].text(xval + 0.1, ax[4].get_ylim()[0], f'{xval}',
+        #            color = vline_color, fontsize = 10, fontweight = 'bold',
+        #            ha = 'right', va = 'bottom',
+        #            transform = ax[4].transData, clip_on = False)
+
+    return fig
