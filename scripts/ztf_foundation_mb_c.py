@@ -57,7 +57,7 @@ def ztf_foundation_mb_c(argv = None):
 
     fig, ax = plt.subplots(1, 1, figsize = (12, 7))
 
-    ax.scatter(ztf_hq_vl.c, ztf_hq_vl.mB, alpha = 0.3, s = 5, label = f'ZTF HQ VL ({len(ztf_hq_vl)} SNe)', color = ZTF_COLOR)
+    ax.scatter(ztf_hq_vl.c, ztf_hq_vl.mB, alpha = 0.3, s = 10, label = f'ZTF HQ VL ({len(ztf_hq_vl)} SNe)', color = ZTF_COLOR)
     ax.scatter(fnd_cosmo.c, fnd_cosmo.mB, alpha = 0.5, s = 20, label = f'Foundation (cosmo) ({len(fnd_cosmo)} SNe)', color = FND_COSMO_COLOR, edgecolors = 'k', linewidths = 0.5)
     ax.scatter(fnd_nocosmo.c, fnd_nocosmo.mB, alpha = 0.8, s = 30, label = f'Foundation (no cosmo) ({len(fnd_nocosmo)} SNe)', color = FND_NOCOSMO_COLOR, marker = 'x', linewidths = 1.5)
 
