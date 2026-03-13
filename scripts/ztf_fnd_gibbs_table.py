@@ -32,6 +32,7 @@ def ztf_fnd_gibbs_table(argv = None):
     gd_fnd = simplebayesn.load_gibbs_data(gd_fnd_h5_path)
 
     params = ['tau', 'RB','x0', 'sigmax2','c0_int', 'alphac_int', 'sigmac_int2', 'M0_int', 'alpha', 'beta_int', 'sigma_int2']
+    var_params = ['sigmax2', 'sigmac_int2', 'sigma_int2']
 
     start_idx = 1000
 
@@ -40,6 +41,10 @@ def ztf_fnd_gibbs_table(argv = None):
         for p in params:
             mean[p] = np.mean(getattr(gd, p)[start_idx:])
             std[p] = np.std(getattr(gd, p)[start_idx:])
+
+        for p in var_params:
+            mean[p.rstrip('2')] = np.mean(np.sqrt(getattr(gd, p)[start_idx:]))
+            std[p.rstrip('2')] = np.std(np.sqrt(getattr(gd, p)[start_idx:]))
 
         df = pd.DataFrame([mean, std]).T.rename(columns = {0:'mean', 1:'std'})
 
