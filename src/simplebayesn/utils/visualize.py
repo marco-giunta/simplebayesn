@@ -6,6 +6,7 @@ from ..utils.data import GibbsChainData
 from matplotlib.animation import FuncAnimation
 from matplotlib.colors import TABLEAU_COLORS as tab_colors
 from matplotlib.patches import Patch
+from scipy.stats import gaussian_kde
 
 PARAMS_LATEX_MAP = {
     'M0_int': r'$M_0^{\text{int}}$',
@@ -623,8 +624,9 @@ def plot_latent_bias(chain: GibbsChainData,
                      hline_color: str = '#444444', vline_color: str = '#444444',
                      extra_hlines: dict = None,
                      legend_fontsize: int = 10,
+                     show_kde: bool = True,
                      figsize = (10,15)):
-    
+
     def add_binned_trend(ax, x, y, yerr):
         x, y, yerr = np.asarray(x), np.asarray(y), np.asarray(yerr)
 
@@ -653,6 +655,27 @@ def plot_latent_bias(chain: GibbsChainData,
                     fmt = 's-', color = trend_color, capsize = bin_capsize,
                     markersize = bin_markersize, lw = 1.5, zorder = 5)
 
+    def add_kde_marginal(ax, y, yerr):
+        y = np.asarray(y)
+        yerr = np.asarray(yerr)
+        y_grid = np.linspace(y.min(), y.max(), 300)
+
+        if color_vec is not None and color_vec_split_value is not None:
+            color_mask = np.asarray(color_vec) <= color_vec_split_value
+            for mask, color in [(color_mask, pop1_color), (~color_mask, pop2_color)]:
+                if mask.sum() > 1:
+                    kde = gaussian_kde(y[mask], weights=1/yerr[mask]**2)
+                    ax.fill_betweenx(y_grid, kde(y_grid), alpha=0.25, color=color)
+                    ax.plot(kde(y_grid), y_grid, color=color, lw=1.2)
+        else:
+            kde = gaussian_kde(y, weights=1/yerr**2)
+            ax.fill_betweenx(y_grid, kde(y_grid), alpha=0.3, color=pop1_color)
+            ax.plot(kde(y_grid), y_grid, color=pop1_color, lw=1.2)
+
+        ax.set_xticks([])
+        ax.tick_params(axis='y', left=False, right=False, labelleft=False, labelright=False)
+        
+
     def plot_points(ax, y, yerr):
         # errorbars first (behind markers)
         ax.errorbar(host_vec, y, xerr=host_vec_err, yerr=yerr,
@@ -679,11 +702,11 @@ def plot_latent_bias(chain: GibbsChainData,
     a_x = chain.alpha[start_idx:stop_idx][:, None] * chain.x[start_idx:stop_idx]
     alpha_x = np.mean(a_x, axis = 0)
     alpha_x_err = np.std(a_x, axis = 0)
-    
+
     b_c = chain.beta_int[start_idx:stop_idx][:, None] * (chain.c_app - chain.E)[start_idx:stop_idx]
     beta_int_c = np.mean(b_c, axis = 0)
     beta_int_c_err = np.std(b_c, axis = 0)
-    
+
     r_e = chain.RB[start_idx:stop_idx][:, None] * chain.E[start_idx:stop_idx]
     RB_E = np.mean(r_e, axis = 0)
     RB_E_err = np.std(r_e, axis = 0)
@@ -694,9 +717,24 @@ def plot_latent_bias(chain: GibbsChainData,
     delta_M = np.mean(d_m[start_idx:stop_idx], axis = 0)
     delta_M_err = np.std(d_m[start_idx:stop_idx], axis = 0)
 
-    fig, ax = plt.subplots(nrows = 5, ncols = 1, sharex = True,
-                           figsize = figsize)
-    
+    fig = plt.figure(figsize=figsize)
+
+    if show_kde:
+        gs = fig.add_gridspec(5, 2, width_ratios=[100, 12], hspace=0.05, wspace=0.02)
+        ax = np.array([fig.add_subplot(gs[i, 0]) for i in range(5)])
+        ax_kde = np.array([fig.add_subplot(gs[i, 1]) for i in range(1, 5)])  # no kde for histogram
+        ax_kde[0].sharey(ax[1])
+        ax_kde[1].sharey(ax[2])
+        ax_kde[2].sharey(ax[3])
+        ax_kde[3].sharey(ax[4])
+    else:
+        gs = fig.add_gridspec(5, 1, hspace=0.05)
+        ax = np.array([fig.add_subplot(gs[i, 0]) for i in range(5)])
+
+    # Share x axis across main panels
+    for a in ax[1:]:
+        a.sharex(ax[0])
+
     ax[0].hist(host_vec, density = True, bins = n_bins_hist,
                color = hist_color, edgecolor = hist_edge_color, linewidth = 0.5)
     ax[0].set_ylabel(f'{xlabel} density')
@@ -713,7 +751,14 @@ def plot_latent_bias(chain: GibbsChainData,
     plot_points(ax[4], delta_M, delta_M_err)
     ax[4].set_ylabel('$\\Delta M_{\\rm int}$')
 
+    if show_kde: # shifted indices (1 less)
+        add_kde_marginal(ax_kde[0], alpha_x, alpha_x_err)
+        add_kde_marginal(ax_kde[1], beta_int_c, beta_int_c_err)
+        add_kde_marginal(ax_kde[2], RB_E, RB_E_err)
+        add_kde_marginal(ax_kde[3], delta_M, delta_M_err)
+
     ax[4].set_xlabel(xlabel)
+
     if color_vec is not None and color_vec_split_value is not None:
         clbl = clabel if clabel is not None else ''
         legend_elements = [
@@ -730,13 +775,21 @@ def plot_latent_bias(chain: GibbsChainData,
 
     ax[0].set_xlim(x0, x1)
 
-    ax[4].hlines(y = 0, xmin = x0, xmax = x1, linestyle = 'dashed',
-                 colors = hline_color, zorder = 10, lw = 1)
-    
+    ax[4].axhline(y = 0, linestyle = 'dashed',
+                  color = hline_color, zorder = 10, lw = 1)
+    if show_kde:
+        ax_kde[3].axhline(y = 0, linestyle = 'dashed',
+                          color = hline_color, zorder = 10, lw = 1)
+
     if extra_hlines is not None:
         for panel_idx, (val, pos) in extra_hlines.items():
-            ax[panel_idx].hlines(y = val, xmin = x0, xmax = x1, linestyle = 'dashed',
-                                 colors = hline_color, zorder = 10, lw = 1)
+            ax[panel_idx].axhline(y = val, linestyle = 'dashed',
+                                 color = hline_color, zorder = 10, lw = 1)
+            if show_kde:
+                kde_idx = panel_idx - 1
+                if 0 <= kde_idx < len(ax_kde):
+                    ax_kde[kde_idx].axhline(y=val, linestyle='dashed', color=hline_color,
+                                           zorder=10, lw=1)
             if pos == 'left':
                 xt = x0 + 0.3
             elif pos == 'right':
@@ -747,13 +800,8 @@ def plot_latent_bias(chain: GibbsChainData,
                                fontsize = 10, ha = 'right', va = 'bottom')
 
     if xval is not None:
-        for a in ax[1:]:
-            a.vlines(x = xval, ymin = a.get_ylim()[0], ymax = a.get_ylim()[1], linestyle = 'dashed',
-                    colors = vline_color, zorder = 10, lw = 1)
-            
-        # ax[4].text(xval + 0.1, ax[4].get_ylim()[0], f'{xval}',
-        #            color = vline_color, fontsize = 10, fontweight = 'bold',
-        #            ha = 'right', va = 'bottom',
-        #            transform = ax[4].transData, clip_on = False)
+        for a in ax:
+            a.axvline(x = xval, linestyle = 'dashed',
+                    color = vline_color, zorder = 10, lw = 1)
 
     return fig
