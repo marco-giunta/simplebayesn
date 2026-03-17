@@ -164,15 +164,15 @@ def marginal_posterior(chain: GibbsChainData, param: str,
 
     return ax
 
-def intrinsic_magnitude_color_distribution_animation(chain_data: GibbsChainData,
+def intrinsic_magnitude_color_distribution_animation(chain: GibbsChainData,
                                                      start_idx: int = 0, stop_idx: int = None,
                                                      title: str = None,
                                                      step_stride: int = 500, color_dust: bool = True,
                                                      verbose: bool = False,
                                                      labels_fontsize = 12, title_fontsize = 14,
                                                      ticks_fontsize = 11, text_fontsize = 11):
-    gp = chain_data[start_idx:stop_idx]['global_params']
-    lp = chain_data[start_idx:stop_idx]['latent_params']
+    gp = chain[start_idx:stop_idx]['global_params']
+    lp = chain[start_idx:stop_idx]['latent_params']
 
     c_int = lp['c_app'] - lp['E']
     M_int = lp['m_app'] - (lp['dist_mod'] + gp['RB'][:, np.newaxis] * lp['E'])
@@ -180,7 +180,7 @@ def intrinsic_magnitude_color_distribution_animation(chain_data: GibbsChainData,
 
     beta_int = gp['beta_int']
 
-    num_iter = len(beta_int) # now different from chain_data.num_chain_samples due to slicing
+    num_iter = len(beta_int) # now different from chain.num_chain_samples due to slicing
     step_idx = np.arange(0, num_iter, step_stride)
     num_frames = len(step_idx)
 
@@ -252,7 +252,7 @@ def intrinsic_magnitude_color_distribution_animation(chain_data: GibbsChainData,
     return anim, fig
 
 def extinguished_magnitude_color_distribution_animation(
-    chain_data: GibbsChainData,
+    chain: GibbsChainData,
     start_idx: int = 0, stop_idx: int = None,
     title: str = None,
     step_stride: int = 500, color_dust: bool = True,
@@ -266,8 +266,8 @@ def extinguished_magnitude_color_distribution_animation(
     showing the slope governed by R_B at each MCMC iteration.
     """
     # --- extract sliced chain data
-    gp = chain_data[start_idx:stop_idx]['global_params']
-    lp = chain_data[start_idx:stop_idx]['latent_params']
+    gp = chain[start_idx:stop_idx]['global_params']
+    lp = chain[start_idx:stop_idx]['latent_params']
 
     # --- key variables
     num_iter = len(gp['RB'])
@@ -417,7 +417,7 @@ def compare_posterior_cornerplots(chains: list[GibbsChainData],
     return fig
 
 def intrinsic_magnitude_color_distribution_frame(
-    chain_data: GibbsChainData,
+    chain: GibbsChainData,
     iteration: int,
     start_idx: int = 0,
     stop_idx: int = None,
@@ -435,8 +435,8 @@ def intrinsic_magnitude_color_distribution_frame(
     including the beta_int slope line.
     """
 
-    gp = chain_data[start_idx:stop_idx]['global_params']
-    lp = chain_data[start_idx:stop_idx]['latent_params']
+    gp = chain[start_idx:stop_idx]['global_params']
+    lp = chain[start_idx:stop_idx]['latent_params']
 
     c_int = lp['c_app'] - lp['E']
     M_int = lp['m_app'] - (lp['dist_mod'] + gp['RB'][:, np.newaxis] * lp['E'])
@@ -521,7 +521,7 @@ def intrinsic_magnitude_color_distribution_frame(
     return fig, ax
 
 def extinguished_magnitude_color_distribution_frame(
-    chain_data: GibbsChainData,
+    chain: GibbsChainData,
     iteration: int,
     start_idx: int = 0,
     stop_idx: int = None,
@@ -539,8 +539,8 @@ def extinguished_magnitude_color_distribution_frame(
     including the R_B slope line.
     """
 
-    gp = chain_data[start_idx:stop_idx]['global_params']
-    lp = chain_data[start_idx:stop_idx]['latent_params']
+    gp = chain[start_idx:stop_idx]['global_params']
+    lp = chain[start_idx:stop_idx]['latent_params']
 
     num_iter = len(gp['RB'])
     if iteration < 0 or iteration >= num_iter:
