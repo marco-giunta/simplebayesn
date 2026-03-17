@@ -32,12 +32,13 @@ def ztf_foundation_gibbs_posterior_cornerplot(argv = None):
     gd_fnd = simplebayesn.load_gibbs_data(gd_fnd_h5_path)
 
     print('Plotting complete cornerplot...')
-    fig = simplebayesn.visualize.compare_posterior_cornerplots([gd_ztf, gd_fnd], start_idx = 1000)
+    fig = simplebayesn.visualize.compare_posterior_cornerplots([gd_ztf, gd_fnd], start_idx = 1000,
+                                                               labels = ['ZTF HQ VL', 'Foundation (cosmo + no cosmo samples)'])
     fig.savefig(fig_path / Path('ztf_fnd_cornerplot.pdf'))
 
     print('Plotting color cornerplot...')
     pp = ['tau', 'RB', 'c0_int', 'sigmac_int2', 'beta_int']
-    fig = simplebayesn.visualize.compare_posterior_cornerplots([gd_ztf, gd_fnd], start_idx = 1000, params_to_plot = pp)
+    fig = simplebayesn.visualize.compare_posterior_cornerplots([gd_ztf, gd_fnd], start_idx = 1000, params_to_plot = pp, labels = ['ZTF HQ VL', 'Foundation (cosmo + no cosmo samples)'])
     fig.savefig(fig_path / Path('ztf_fnd_color_params_cornerplot.pdf'))
 
 if __name__ == '__main__':
