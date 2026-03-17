@@ -809,3 +809,120 @@ def plot_latent_bias(chain: GibbsChainData,
                     color = vline_color, zorder = 10, lw = 1)
 
     return fig
+
+
+def extinguished_magnitude_color_distribution_mean(
+    chain: GibbsChainData,
+    start_idx: int = 0,
+    stop_idx: int = None,
+    title: str = None,
+    color_dust: bool = True,
+    verbose: bool = False,
+    labels_fontsize=12,
+    title_fontsize=14,
+    ticks_fontsize=11,
+    text_fontsize=11,
+    elinewidth=0.85,
+    alpha=0.45,
+    capsize=0,
+    figsize=(6, 5)
+):
+    """
+    Plot the mean (+-1 std) across MCMC iterations of the extinguished SN population:
+    apparent color (c_app) vs. stretch-corrected extinguished magnitude,
+    including the R_B slope line with shading for R_B uncertainty.
+    """
+    gp = chain[start_idx:stop_idx]['global_params']
+    lp = chain[start_idx:stop_idx]['latent_params']
+
+    c_app = lp['c_app']                         # (n_iter, n_SN)
+    M_ext = lp['m_app'] - lp['dist_mod']        # (n_iter, n_SN)
+    M_ext_ax = M_ext - gp['alpha'][:, np.newaxis] * lp['x']
+    RB = gp['RB']                               # (n_iter,)
+
+    # Mean and std along axis=0 (over iterations), shape (n_SN,)
+    c_mean = c_app.mean(axis=0)
+    c_std  = c_app.std(axis=0)
+    M_mean = M_ext_ax.mean(axis=0)
+    M_std  = M_ext_ax.std(axis=0)
+    E_mean = lp['E'].mean(axis=0)
+
+    rB_mean = RB.mean()
+    rB_std  = RB.std()
+
+    # Plot bounds
+    c_min, c_max = c_mean.min(), c_mean.max()
+    M_min, M_max = M_mean.min(), M_mean.max()
+    pad_c = 0.02 * (c_max - c_min) if c_max != c_min else 0.01
+    pad_M = 0.02 * (M_max - M_min) if M_max != M_min else 0.1
+
+    fig, ax = plt.subplots(figsize=figsize)
+
+    if color_dust:
+        norm = plt.Normalize(vmin=E_mean.min(), vmax=E_mean.max())
+        cmap = plt.cm.inferno
+        scat = ax.scatter(c_mean, M_mean, s=10, alpha=0.6,
+                          c=E_mean, cmap=cmap, norm=norm)
+        ax.errorbar(
+            c_mean, M_mean,
+            xerr=c_std, yerr=M_std,
+            fmt='none', ecolor='gray', elinewidth=elinewidth, alpha=alpha, zorder=0,
+            capsize=capsize
+        )
+        sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
+        cbar = fig.colorbar(sm, ax=ax)
+        cbar.set_label(
+            label='$E$ (dust reddening)' if verbose else '$E$',
+            fontsize=labels_fontsize
+        )
+        cbar.ax.tick_params(labelsize=ticks_fontsize)
+    else:
+        scat = ax.scatter(c_mean, M_mean, s=10, alpha=0.6, color='k')
+        ax.errorbar(
+            c_mean, M_mean,
+            xerr=c_std, yerr=M_std,
+            fmt='none', ecolor='gray', elinewidth=elinewidth, alpha=alpha, zorder=0,
+            capsize=capsize
+        )
+
+    # Slope line centered at medians of mean arrays
+    xvals = np.linspace(c_min - pad_c, c_max + pad_c, 200)
+    m0 = np.median(M_mean)
+    c0 = np.median(c_mean)
+
+    y_center = m0 + rB_mean * (xvals - c0)
+    y_upper  = m0 + (rB_mean + rB_std) * (xvals - c0)
+    y_lower  = m0 + (rB_mean - rB_std) * (xvals - c0)
+
+    ax.plot(xvals, y_center, lw=2, color="C0")
+    ax.fill_between(xvals, y_lower, y_upper, color="C0", alpha=0.25,
+                    label=f"$R_B \\pm 1\\sigma$")
+
+    ax.set_xlim(c_min - pad_c, c_max + pad_c)
+    ax.set_ylim(M_max + pad_M, M_min - pad_M)  # reversed y-axis
+
+    ax.set_xlabel(
+        "Posterior mean apparent color $\\langle c_{\\rm app} \\rangle$" if verbose else '$\\langle c_{\\rm app} \\rangle$',
+        fontsize=labels_fontsize
+    )
+    ax.set_ylabel(
+        "Posterior mean $\\langle M_{\\rm ext} - \\alpha x \\rangle$" if verbose else '$\\langle M_{\\rm ext} - \\alpha x \\rangle$',
+        fontsize=labels_fontsize
+    )
+
+    if title is None and verbose:
+        ax.set_title("Extinguished population (posterior mean $\\pm$ std)", fontsize=title_fontsize)
+    else:
+        ax.set_title(title, fontsize=title_fontsize)
+
+    ax.text(
+        0.65, 0.98, # these values should depend on the fontsize...
+        f"$R_B$ = {rB_mean:.2f} $\\pm$ {rB_std:.2f}",
+        transform=ax.transAxes,
+        va="top", ha="left",
+        fontsize=text_fontsize
+    )
+
+    ax.tick_params(axis='both', labelsize=ticks_fontsize)
+    plt.tight_layout()
+    return fig, ax
