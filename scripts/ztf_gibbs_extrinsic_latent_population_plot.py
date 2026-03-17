@@ -9,7 +9,6 @@ def ztf_gibbs_extrinsic_population_latent_plot(argv = None):
     )
     parser.add_argument('-i', '--input', type = str, help = 'Path of GibbsData .h5 (input file)')
     parser.add_argument('-o', '--output', type = str, help = 'Path of the folder where to save the output plot')
-    parser.add_argument('-f', '--frame', type = int, default = 20000, help = 'Number of frame to plot')
 
     args = parser.parse_args(argv)
 
@@ -27,7 +26,7 @@ def ztf_gibbs_extrinsic_population_latent_plot(argv = None):
     gd_ztf = simplebayesn.load_gibbs_data(gd_ztf_h5_path)
 
     print('Plotting extrinsic latent population...')
-    fig, ax = simplebayesn.visualize.extinguished_magnitude_color_distribution_frame(gd_ztf, args.frame, 1000, color_dust=True)
+    fig, ax = simplebayesn.visualize.extinguished_magnitude_color_distribution_mean(gd_ztf, 1000, color_dust=True)
     fig.savefig(fig_path / Path('ztf_extrinsic_latent_population_plot.pdf'))
 
 if __name__ == '__main__':
