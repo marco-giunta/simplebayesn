@@ -16,7 +16,7 @@ PARAMS_LATEX_MAP = {
     'alphac_int':r'$\alpha_c^{\text{int}}$',
     'x0':r'$x_0$',
     'sigma_int2':r'$\sigma_{\text{int}}^2$',
-    'sigmac_int2':r'$(\sigma_c^{\text{int}})^2$',
+    'sigmac_int2':r'$\sigma_{c, \text{int}}^2$',
     'sigmax2':r'$\sigma_x^2$',
     'RB':r'$R_B$',
     'tau':r'$\tau$'
