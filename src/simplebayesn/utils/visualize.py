@@ -170,7 +170,8 @@ def intrinsic_magnitude_color_distribution_animation(chain: GibbsChainData,
                                                      step_stride: int = 500, color_dust: bool = True,
                                                      verbose: bool = False,
                                                      labels_fontsize = 12, title_fontsize = 14,
-                                                     ticks_fontsize = 11, text_fontsize = 11):
+                                                     ticks_fontsize = 11, text_fontsize = 11,
+                                                     figsize = (6, 5)):
     gp = chain[start_idx:stop_idx]['global_params']
     lp = chain[start_idx:stop_idx]['latent_params']
 
@@ -193,7 +194,7 @@ def intrinsic_magnitude_color_distribution_animation(chain: GibbsChainData,
         norm = plt.Normalize(vmin=lp['E'].min(), vmax=lp['E'].max())
         cmap = plt.cm.inferno
 
-    fig, ax = plt.subplots(figsize=(6, 5))
+    fig, ax = plt.subplots(figsize=figsize)
     scat = ax.scatter([], [], s=10, alpha=0.6, color='k')
     line, = ax.plot([], [], lw=2)
     text = ax.text(0.75, 0.98, "", transform=ax.transAxes, va="top", ha="left", fontsize = text_fontsize)
@@ -258,7 +259,8 @@ def extinguished_magnitude_color_distribution_animation(
     step_stride: int = 500, color_dust: bool = True,
     verbose: bool = False,
     labels_fontsize = 12, title_fontsize = 14,
-    ticks_fontsize = 11, text_fontsize = 11
+    ticks_fontsize = 11, text_fontsize = 11,
+    figsize = (6, 5)
 ):
     """
     Animate the evolution of the *extinguished* SN population:
@@ -292,7 +294,7 @@ def extinguished_magnitude_color_distribution_animation(
         cmap = plt.cm.inferno
 
     # --- figure setup
-    fig, ax = plt.subplots(figsize=(6, 5))
+    fig, ax = plt.subplots(figsize=figsize)
     scat = ax.scatter([], [], s=10, alpha=0.6, color='k')
     line, = ax.plot([], [], lw=2)
     text = ax.text(0.75, 0.98, "", transform=ax.transAxes, va="top", ha="left", fontsize = text_fontsize)
@@ -427,7 +429,8 @@ def intrinsic_magnitude_color_distribution_frame(
     labels_fontsize = 12,
     title_fontsize = 14,
     ticks_fontsize = 11,
-    text_fontsize = 11
+    text_fontsize = 11,
+    figsize = (6, 5)
 ):
     """
     Plot a single MCMC iteration of the intrinsic SN population:
@@ -457,7 +460,7 @@ def intrinsic_magnitude_color_distribution_frame(
     M = M_int_ax[iteration, :]
     b = beta_int[iteration]
 
-    fig, ax = plt.subplots(figsize=(6, 5))
+    fig, ax = plt.subplots(figsize=figsize)
 
     if color_dust:
         norm = plt.Normalize(vmin=lp['E'].min(), vmax=lp['E'].max())
@@ -531,7 +534,8 @@ def extinguished_magnitude_color_distribution_frame(
     labels_fontsize = 12,
     title_fontsize = 14,
     ticks_fontsize = 11,
-    text_fontsize = 11
+    text_fontsize = 11,
+    figsize = (6, 5)
 ):
     """
     Plot a single MCMC iteration of the extinguished SN population:
@@ -561,7 +565,7 @@ def extinguished_magnitude_color_distribution_frame(
     pad_c = 0.02 * (c_max - c_min) if c_max != c_min else 0.01
     pad_M = 0.02 * (M_max - M_min) if M_max != M_min else 0.1
 
-    fig, ax = plt.subplots(figsize=(6, 5))
+    fig, ax = plt.subplots(figsize=figsize)
 
     if color_dust:
         norm = plt.Normalize(vmin=lp['E'].min(), vmax=lp['E'].max())
