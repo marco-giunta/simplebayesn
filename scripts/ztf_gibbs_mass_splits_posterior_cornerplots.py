@@ -91,7 +91,7 @@ def ztf_gibbs_mass_splits_posterior_cornerplots(argv = None):
             gd_ztf,
             k, v
         ).savefig(
-            fig_path / Path(f'local_{k}.pdf')
+            fig_path / Path(f'ztf_local_{k}.pdf')
         )
         print(f'Plotting local {k} (color parameters)...')
         plot_ztf_gibbs_subset_cornerplot_color(
