@@ -77,7 +77,7 @@ def ztf_gibbs_latent_plot(argv = None):
                      extra_hlines = {2: (0.03, 'left')},
                      pop1_color = '#3778bf', pop2_color = '#e05c3a',
                      hline_color = '#444444', vline_color = '#444444').savefig(
-                        fig_path / Path('ztf_latents_globalhost.pdf')
+                        fig_path / Path('ztf_latents_globmass.pdf')
                      )
 
     print('Plotting x = globalhost, c = ddlr...')
@@ -88,7 +88,7 @@ def ztf_gibbs_latent_plot(argv = None):
                      extra_hlines = {2: (0.03, 'left')},
                      pop1_color = '#3778bf', pop2_color = '#e05c3a',
                      hline_color = '#444444', vline_color = '#444444').savefig(
-                        fig_path / Path('ztf_latents_globalhost_ddlr.pdf')
+                        fig_path / Path('ztf_latents_globmass_ddlr.pdf')
                      )
 
     print('Plotting x = ddlr...')
@@ -111,7 +111,7 @@ def ztf_gibbs_latent_plot(argv = None):
                      extra_hlines = {2: (0.03, 'right')},
                      pop1_color = '#2a9d8f', pop2_color = '#e76f51',
                      hline_color = '#555555', vline_color = '#555555').savefig(
-                        fig_path / Path('ztf_latents_ddlr_globalhost.pdf')
+                        fig_path / Path('ztf_latents_ddlr_globmass.pdf')
                      )
 
 
