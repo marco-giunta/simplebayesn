@@ -4,19 +4,21 @@ from pathlib import Path
 from argparse import ArgumentParser
 
 LATEX_MAP = {
-    'd_dlr':'dDLR$',
+    'd_dlr':'dDLR',
     'mass':'\\log (M_* / M_☉)', # \astrosun
     'restframe_gz':'(g-z)'
 }
 
 def plot_ztf_gibbs_subset_cornerplot(ztf_less, ztf_larger, ztf_complete, name, value, kind):
-    label = f'${LATEX_MAP[name]}' + '_{\\rm ' + f'{kind}' + '}$'
+    kind = kind if name != 'd_dlr' else ''
+    label = f'${LATEX_MAP[name]}' + '_{\\rm ' + kind + '}$'
     fig = simplebayesn.visualize.compare_posterior_cornerplots([ztf_less, ztf_larger, ztf_complete], start_idx = 1000, labels = [f'{label} < {value:.1f}', f'{label} > {value:.1f}', 'all'])
     return fig
 
 def plot_ztf_gibbs_subset_cornerplot_color(ztf_less, ztf_larger, ztf_complete, name, value, kind):
     pp = ['tau', 'RB', 'c0_int', 'sigmac_int2', 'M0_int', 'beta_int']
-    label = f'${LATEX_MAP[name]}' + '_{\\rm ' + f'{kind}' + '}$'
+    kind = kind if name != 'd_dlr' else ''
+    label = f'${LATEX_MAP[name]}' + '_{\\rm ' + kind + '}$'
     fig = simplebayesn.visualize.compare_posterior_cornerplots([ztf_less, ztf_larger, ztf_complete], start_idx = 1000, labels = [f'{label} < {value:.1f}', f'{label} > {value:.1f}', 'all'],
     params_to_plot = pp)
     return fig
