@@ -19,7 +19,10 @@ PARAMS_LATEX_MAP = {
     'sigmac_int2':r'$\sigma_{c, \text{int}}^2$',
     'sigmax2':r'$\sigma_x^2$',
     'RB':r'$R_B$',
-    'tau':r'$\tau$'
+    'tau':r'$\tau$',
+    'sigma_int':r'$\sigma_{\text{int}}$',
+    'sigmac_int':r'$\sigma_{c, \text{int}}$',
+    'sigmax':r'$\sigma_x$',
 }
 
 def posterior_cornerplot(chain: GibbsChainData,
@@ -36,11 +39,11 @@ def posterior_cornerplot(chain: GibbsChainData,
                          *args, **kwargs):
     if params_to_plot is None:
         params_to_plot = ['tau', 'RB',
-                          'x0', 'sigmax2',
-                          'c0_int', 'alphac_int', 'sigmac_int2',
-                          'M0_int', 'alpha', 'beta_int', 'sigma_int2']
+                          'x0', 'sigmax',
+                          'c0_int', 'alphac_int', 'sigmac_int',
+                          'M0_int', 'alpha', 'beta_int', 'sigma_int']
 
-    data = np.column_stack([chain[start_idx:stop_idx][k] for k in params_to_plot])
+    data = np.column_stack([chain[k][start_idx:stop_idx] for k in params_to_plot])
     means = data.mean(axis=0)
     stds = data.std(axis=0)
 
