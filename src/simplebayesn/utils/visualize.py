@@ -371,7 +371,7 @@ def compare_posterior_cornerplots(chains: list[GibbsChainData],
                                   truth_color: str = 'black',
                                   axes_labels_fontsize = 25,
                                   ticks_labels_fontsize = 16, title_fontsize = 25,
-                                  legend_fontsize: int = 20,
+                                  legend_fontsize: int = 20, show_sn_num: bool = True,
                                   params_to_plot: list = None,
                                   *args, **kwargs):
     
@@ -403,6 +403,8 @@ def compare_posterior_cornerplots(chains: list[GibbsChainData],
                              *args, **kwargs, **shared_args, fig = fig)
 
     if labels is not None:
+        if show_sn_num:
+            labels = [l + f' ({c.num_data_samples} SNe)' for c, l in zip(chains, labels)]
         legend_handles = [
             Patch(facecolor=contours_colors[i], label=labels[i])
             for i in range(len(chains))
