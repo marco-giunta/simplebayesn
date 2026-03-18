@@ -146,6 +146,18 @@ class GibbsChainData:
         return {gp: getattr(self, gp)[t] for gp in self.global_params_names} | \
                {lp: getattr(self, lp)[t] if all_latents_exist else None for lp in self.latent_params_names}
 
+    @property
+    def sigmax(self):
+        return np.sqrt(self.sigmax2)
+    
+    @property
+    def sigmac_int(self):
+        return np.sqrt(self.sigmac_int2)
+    
+    @property
+    def sigma_int(self):
+        return np.sqrt(self.sigma_int2)
+
     def load(self, path: str | Path, marginal: bool = False):
         if marginal:
             reader = HDFBackend(Path(path), read_only = True)
