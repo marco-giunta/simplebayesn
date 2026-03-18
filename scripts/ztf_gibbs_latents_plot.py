@@ -72,7 +72,7 @@ def ztf_gibbs_latent_plot(argv = None):
 
     print('Plotting x = globalhost...')
     plot_latent_bias(gd_ztf, host_vec = globalhost.mass, host_vec_err = globalhost.mass_err,
-                     xlabel = '$\\log M_{\\rm glob}$', xval = 10,
+                     xlabel = '$\\log (M / M_☉)_{\\rm glob}$', xval = 10,
                      start_idx = 1000,
                      extra_hlines = {2: (0.03, 'left')},
                      pop1_color = '#3778bf', pop2_color = '#e05c3a',
@@ -82,7 +82,7 @@ def ztf_gibbs_latent_plot(argv = None):
 
     print('Plotting x = globalhost, c = ddlr...')
     plot_latent_bias(gd_ztf, host_vec = globalhost.mass, host_vec_err = globalhost.mass_err,
-                     xlabel = '$\\log M_{\\rm glob}$', xval = 10,
+                     xlabel = '$\\log (M / M_☉)_{\\rm glob}$', xval = 10,
                      color_vec = globalhost.d_dlr, color_vec_split_value = 1,
                      start_idx = 1000, clabel = '$dDLR$',
                      extra_hlines = {2: (0.03, 'left')},
@@ -106,7 +106,7 @@ def ztf_gibbs_latent_plot(argv = None):
     plot_latent_bias(gd_ztf, host_vec = globalhost.d_dlr,
                      xlabel = '$dDLR$', xval = 1,
                      color_vec = globalhost.mass, color_vec_split_value = 10,
-                     start_idx = 1000, clabel = '$\\log M_{\\rm glob}$',
+                     start_idx = 1000, clabel = '$\\log (M / M_☉)_{\\rm glob}$',
                      x_min = -0.1,
                      extra_hlines = {2: (0.03, 'right')},
                      pop1_color = '#2a9d8f', pop2_color = '#e76f51',
