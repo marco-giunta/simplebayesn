@@ -32,7 +32,7 @@ def ztf_gibbs_posterior_cornerplot(argv = None):
     fig.savefig(fig_path / Path('ztf_cornerplot.pdf'))
 
     print('Plotting color cornerplot...')
-    pp = ['tau', 'RB', 'c0_int', 'sigmac_int2', 'beta_int']
+    pp = ['tau', 'RB', 'c0_int', 'sigmac_int', 'beta_int']
     fig = simplebayesn.visualize.posterior_cornerplot(gd_ztf, start_idx = 1000,
                                                       contours_color = 'C1',
                                                       mean_color = 'black',
