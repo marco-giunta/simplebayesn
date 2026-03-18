@@ -139,6 +139,9 @@ class GibbsChainData:
             getattr(self, param)[t] = new_vals[param]
 
     def __getitem__(self, t):
+        if isinstance(t, str):
+            return getattr(self, t)
+        
         all_latents_exist = all([getattr(self, lp) is not None for lp in self.latent_params_names])
         return {gp: getattr(self, gp)[t] for gp in self.global_params_names} | \
                {lp: getattr(self, lp)[t] if all_latents_exist else None for lp in self.latent_params_names}
