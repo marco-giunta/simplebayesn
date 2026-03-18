@@ -139,22 +139,9 @@ class GibbsChainData:
             getattr(self, param)[t] = new_vals[param]
 
     def __getitem__(self, t):
-        if all([getattr(self, lp) is not None for lp in self.latent_params_names]):
-            return {
-                'latent_params': {lp: getattr(self, lp)[t] for lp in self.latent_params_names},
-                'global_params': {gp: getattr(self, gp)[t] for gp in self.global_params_names}
-            }
-        else:
-            return {
-                'latent_params': {lp: None for lp in self.latent_params_names},
-                'global_params': {gp: getattr(self, gp)[t] for gp in self.global_params_names}
-            }
-
-    def get_samples(self):
-        return {
-            'latent_params': {lp: getattr(self, lp) for lp in self.latent_params_names},
-            'global_params': {gp: getattr(self, gp) for gp in self.global_params_names}
-        }
+        all_latents_exist = all([getattr(self, lp) is not None for lp in self.latent_params_names])
+        return {gp: getattr(self, gp)[t] for gp in self.global_params_names} | \
+               {lp: getattr(self, lp)[t] if all_latents_exist else None for lp in self.latent_params_names}
 
     def load(self, path: str | Path, marginal: bool = False):
         if marginal:

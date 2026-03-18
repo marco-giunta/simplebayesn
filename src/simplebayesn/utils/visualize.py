@@ -40,7 +40,7 @@ def posterior_cornerplot(chain: GibbsChainData,
                           'c0_int', 'alphac_int', 'sigmac_int2',
                           'M0_int', 'alpha', 'beta_int', 'sigma_int2']
 
-    data = np.column_stack([chain[start_idx:stop_idx]['global_params'][k] for k in params_to_plot])
+    data = np.column_stack([chain[start_idx:stop_idx][k] for k in params_to_plot])
     means = data.mean(axis=0)
     stds = data.std(axis=0)
 
@@ -172,14 +172,13 @@ def intrinsic_magnitude_color_distribution_animation(chain: GibbsChainData,
                                                      labels_fontsize = 12, title_fontsize = 14,
                                                      ticks_fontsize = 11, text_fontsize = 11,
                                                      figsize = (6, 5)):
-    gp = chain[start_idx:stop_idx]['global_params']
-    lp = chain[start_idx:stop_idx]['latent_params']
+    params = chain[start_idx:stop_idx]
 
-    c_int = lp['c_app'] - lp['E']
-    M_int = lp['m_app'] - (lp['dist_mod'] + gp['RB'][:, np.newaxis] * lp['E'])
-    M_int_ax = M_int  - gp['alpha'][:, np.newaxis] * lp['x']
+    c_int = params['c_app'] - params['E']
+    M_int = params['m_app'] - (params['dist_mod'] + params['RB'][:, np.newaxis] * params['E'])
+    M_int_ax = M_int  - params['alpha'][:, np.newaxis] * params['x']
 
-    beta_int = gp['beta_int']
+    beta_int = params['beta_int']
 
     num_iter = len(beta_int) # now different from chain.num_chain_samples due to slicing
     step_idx = np.arange(0, num_iter, step_stride)
@@ -191,7 +190,7 @@ def intrinsic_magnitude_color_distribution_animation(chain: GibbsChainData,
     pad_M = 0.02 * (M_max - M_min) if M_max != M_min else 0.1
 
     if color_dust:
-        norm = plt.Normalize(vmin=lp['E'].min(), vmax=lp['E'].max())
+        norm = plt.Normalize(vmin=params['E'].min(), vmax=params['E'].max())
         cmap = plt.cm.inferno
 
     fig, ax = plt.subplots(figsize=figsize)
@@ -227,7 +226,7 @@ def intrinsic_magnitude_color_distribution_animation(chain: GibbsChainData,
         offsets = np.column_stack([c, M])
         scat.set_offsets(offsets)
         if color_dust:
-            scat.set_color(cmap(norm(lp['E'][step])))
+            scat.set_color(cmap(norm(params['E'][step])))
 
         m0 = np.median(M)
         c0 = np.median(c)
@@ -269,19 +268,18 @@ def extinguished_magnitude_color_distribution_animation(
     showing the slope governed by R_B at each MCMC iteration.
     """
     # --- extract sliced chain data
-    gp = chain[start_idx:stop_idx]['global_params']
-    lp = chain[start_idx:stop_idx]['latent_params']
+    params = chain[start_idx:stop_idx]
 
     # --- key variables
-    num_iter = len(gp['RB'])
+    num_iter = len(params['RB'])
     step_idx = np.arange(0, num_iter, step_stride)
 
     # apparent color and extinguished magnitude (distance-corrected)
-    c_app = lp['c_app']                         # (n_iter, n_SN)
-    M_ext = lp['m_app'] - lp['dist_mod']        # (n_iter, n_SN)
-    M_ext_ax = M_ext - gp['alpha'][:, np.newaxis] * lp['x']
+    c_app = params['c_app']                         # (n_iter, n_SN)
+    M_ext = params['m_app'] - params['dist_mod']    # (n_iter, n_SN)
+    M_ext_ax = M_ext - params['alpha'][:, np.newaxis] * params['x']
 
-    RB = gp['RB']
+    RB = params['RB']
 
     # --- define plot bounds with small padding
     c_min, c_max = c_app.min(), c_app.max()
@@ -291,7 +289,7 @@ def extinguished_magnitude_color_distribution_animation(
 
     # --- optional color coding by dust E
     if color_dust:
-        norm = plt.Normalize(vmin=lp['E'].min(), vmax=lp['E'].max())
+        norm = plt.Normalize(vmin=params['E'].min(), vmax=params['E'].max())
         cmap = plt.cm.inferno
 
     # --- figure setup
@@ -332,7 +330,7 @@ def extinguished_magnitude_color_distribution_animation(
         scat.set_offsets(offsets)
 
         if color_dust:
-            scat.set_color(cmap(norm(lp['E'][step])))
+            scat.set_color(cmap(norm(params['E'][step])))
 
         # slope line: fit around median
         m0 = np.median(M)
@@ -439,14 +437,13 @@ def intrinsic_magnitude_color_distribution_frame(
     including the beta_int slope line.
     """
 
-    gp = chain[start_idx:stop_idx]['global_params']
-    lp = chain[start_idx:stop_idx]['latent_params']
+    params = chain[start_idx:stop_idx]
 
-    c_int = lp['c_app'] - lp['E']
-    M_int = lp['m_app'] - (lp['dist_mod'] + gp['RB'][:, np.newaxis] * lp['E'])
-    M_int_ax = M_int - gp['alpha'][:, np.newaxis] * lp['x']
+    c_int = params['c_app'] - params['E']
+    M_int = params['m_app'] - (params['dist_mod'] + params['RB'][:, np.newaxis] * params['E'])
+    M_int_ax = M_int - params['alpha'][:, np.newaxis] * params['x']
 
-    beta_int = gp['beta_int']
+    beta_int = params['beta_int']
 
     num_iter = len(beta_int)
     if iteration < 0 or iteration >= num_iter:
@@ -464,11 +461,11 @@ def intrinsic_magnitude_color_distribution_frame(
     fig, ax = plt.subplots(figsize=figsize)
 
     if color_dust:
-        norm = plt.Normalize(vmin=lp['E'].min(), vmax=lp['E'].max())
+        norm = plt.Normalize(vmin=params['E'].min(), vmax=params['E'].max())
         cmap = plt.cm.inferno
         scat = ax.scatter(
             c, M, s=10, alpha=0.6,
-            c=lp['E'][iteration], cmap=cmap, norm=norm
+            c=params['E'][iteration], cmap=cmap, norm=norm
         )
         sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
         cbar = fig.colorbar(sm, ax=ax)
@@ -545,17 +542,16 @@ def extinguished_magnitude_color_distribution_frame(
     including the R_B slope line.
     """
 
-    gp = chain[start_idx:stop_idx]['global_params']
-    lp = chain[start_idx:stop_idx]['latent_params']
+    params = chain[start_idx:stop_idx]
 
-    num_iter = len(gp['RB'])
+    num_iter = len(params['RB'])
     if iteration < 0 or iteration >= num_iter:
         raise IndexError(f"iteration must be in [0, {num_iter-1}]")
 
-    c_app = lp['c_app']                         # (n_iter, n_SN)
-    M_ext = lp['m_app'] - lp['dist_mod']        # (n_iter, n_SN)
-    M_ext_ax = M_ext - gp['alpha'][:, np.newaxis] * lp['x']
-    RB = gp['RB']
+    c_app = params['c_app']                         # (n_iter, n_SN)
+    M_ext = params['m_app'] - params['dist_mod']    # (n_iter, n_SN)
+    M_ext_ax = M_ext - params['alpha'][:, np.newaxis] * params['x']
+    RB = params['RB']
 
     c = c_app[iteration, :]
     M = M_ext_ax[iteration, :]
@@ -570,10 +566,10 @@ def extinguished_magnitude_color_distribution_frame(
     fig, ax = plt.subplots(figsize=figsize)
 
     if color_dust:
-        norm = plt.Normalize(vmin=lp['E'].min(), vmax=lp['E'].max())
+        norm = plt.Normalize(vmin=params['E'].min(), vmax=params['E'].max())
         cmap = plt.cm.inferno
         scat = ax.scatter(c, M, s=10, alpha=0.6,
-                          c=lp['E'][iteration], cmap=cmap, norm=norm)
+                          c=params['E'][iteration], cmap=cmap, norm=norm)
         sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
         cbar = fig.colorbar(sm, ax=ax)
         cbar.set_label(label='$E$ (dust reddening)' if verbose else '$E$',
@@ -835,20 +831,19 @@ def extinguished_magnitude_color_distribution_mean(
     apparent color (c_app) vs. stretch-corrected extinguished magnitude,
     including the R_B slope line with shading for R_B uncertainty.
     """
-    gp = chain[start_idx:stop_idx]['global_params']
-    lp = chain[start_idx:stop_idx]['latent_params']
+    params = chain[start_idx:stop_idx]
 
-    c_app = lp['c_app']                         # (n_iter, n_SN)
-    M_ext = lp['m_app'] - lp['dist_mod']        # (n_iter, n_SN)
-    M_ext_ax = M_ext - gp['alpha'][:, np.newaxis] * lp['x']
-    RB = gp['RB']                               # (n_iter,)
+    c_app = params['c_app']                         # (n_iter, n_SN)
+    M_ext = params['m_app'] - params['dist_mod']        # (n_iter, n_SN)
+    M_ext_ax = M_ext - params['alpha'][:, np.newaxis] * params['x']
+    RB = params['RB']                               # (n_iter,)
 
     # Mean and std along axis=0 (over iterations), shape (n_SN,)
     c_mean = c_app.mean(axis=0)
     c_std  = c_app.std(axis=0)
     M_mean = M_ext_ax.mean(axis=0)
     M_std  = M_ext_ax.std(axis=0)
-    E_mean = lp['E'].mean(axis=0)
+    E_mean = params['E'].mean(axis=0)
 
     rB_mean = RB.mean()
     rB_std  = RB.std()
