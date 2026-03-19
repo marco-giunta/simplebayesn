@@ -383,7 +383,7 @@ def compare_posterior_cornerplots(chains: list[GibbsChainData],
     if contours_colors is None:
         contours_colors = list(tab_colors.keys())[:len(chains)]
     if mean_colors is None:
-        mean_colors = list(tab_colors.keys())[:len(chains)]
+        mean_colors = contours_colors
 
     shared_args = dict(start_idx = start_idx, stop_idx = stop_idx, title = title,
                        truth_dict = truth_dict, truth_color = truth_color,
