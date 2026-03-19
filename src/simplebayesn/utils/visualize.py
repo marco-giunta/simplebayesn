@@ -630,7 +630,7 @@ def plot_latent_bias(chain: GibbsChainData,
                      n_bins_trend: int = 10, trend_color: str = "#1E1E1E", bin_capsize = 3, bin_markersize = 5,
                      n_bins_hist: int = 20, hist_color: str = '#aaaaaa', hist_edge_color: str = '#666666',
                      hline_color: str = '#444444', vline_color: str = '#444444',
-                     extra_hlines: dict = None,
+                     extra_hlines: dict = None, mass_step_labels_loc: str = None,
                      legend_fontsize: int = 10,
                      show_kde: bool = True,
                      figsize = (10,15)):
@@ -785,9 +785,28 @@ def plot_latent_bias(chain: GibbsChainData,
 
     ax[4].axhline(y = 0, linestyle = 'dashed',
                   color = hline_color, zorder = 10, lw = 1)
+    if mass_step_labels_loc is not None:
+        ax[4].axhline(y = 0.05, linestyle = 'dashed',
+                    color = hline_color, zorder = 10, lw = 1)
+        ax[4].axhline(y = -0.05, linestyle = 'dashed',
+                    color = hline_color, zorder = 10, lw = 1)
+        if mass_step_labels_loc not in ['right', 'left']:
+            raise ValueError('mass_step_labels_loc must be either "left", "right", or None')
+        ax[4].text(x0 + 0.4 if mass_step_labels_loc == 'left' else x1 - 0.05,
+                   0.055, '0.05', color = hline_color,
+                   fontsize = 10, ha = 'right', va = 'bottom')
+        ax[4].text(x0 + 0.4 if mass_step_labels_loc == 'left' else x1 - 0.05,
+                   -0.065, '-0.05', color = hline_color,
+                   fontsize = 10, ha = 'right', va = 'top')
+
     if show_kde:
         ax_kde[3].axhline(y = 0, linestyle = 'dashed',
                           color = hline_color, zorder = 10, lw = 1)
+        if mass_step_labels_loc is not None:
+            ax_kde[3].axhline(y = 0.05, linestyle = 'dashed',
+                        color = hline_color, zorder = 10, lw = 1)
+            ax_kde[3].axhline(y = -0.05, linestyle = 'dashed',
+                        color = hline_color, zorder = 10, lw = 1)
 
     if extra_hlines is not None:
         for panel_idx, (val, pos) in extra_hlines.items():
@@ -797,7 +816,7 @@ def plot_latent_bias(chain: GibbsChainData,
                 kde_idx = panel_idx - 1
                 if 0 <= kde_idx < len(ax_kde):
                     ax_kde[kde_idx].axhline(y=val, linestyle='dashed', color=hline_color,
-                                           zorder=10, lw=1)
+                                            zorder=10, lw=1)
             if pos == 'left':
                 xt = x0 + 0.3
             elif pos == 'right':

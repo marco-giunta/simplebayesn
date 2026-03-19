@@ -75,6 +75,7 @@ def ztf_gibbs_latent_plot(argv = None):
                      xlabel = '$\\log (M / M_☉)_{\\rm glob}$', xval = 10,
                      start_idx = 1000,
                      extra_hlines = {2: (0.03, 'left')},
+                     mass_step_labels_loc = 'left',
                      pop1_color = '#3778bf', pop2_color = '#e05c3a',
                      hline_color = '#444444', vline_color = '#444444').savefig(
                         fig_path / Path('ztf_latents_globmass.pdf')
@@ -86,6 +87,7 @@ def ztf_gibbs_latent_plot(argv = None):
                      color_vec = globalhost.d_dlr, color_vec_split_value = 1,
                      start_idx = 1000, clabel = '$dDLR$',
                      extra_hlines = {2: (0.03, 'left')},
+                     mass_step_labels_loc = 'left',
                      pop1_color = '#3778bf', pop2_color = '#e05c3a',
                      hline_color = '#444444', vline_color = '#444444').savefig(
                         fig_path / Path('ztf_latents_globmass_ddlr.pdf')
@@ -97,6 +99,7 @@ def ztf_gibbs_latent_plot(argv = None):
                      start_idx = 1000,
                      x_min = -0.1,
                      extra_hlines = {2: (0.03, 'right')},
+                     mass_step_labels_loc = 'right',
                      pop1_color = '#2a9d8f', pop2_color = '#e76f51',
                      hline_color = '#555555', vline_color = '#555555').savefig(
                         fig_path / Path('ztf_latents_ddlr.pdf')
@@ -109,6 +112,7 @@ def ztf_gibbs_latent_plot(argv = None):
                      start_idx = 1000, clabel = '$\\log (M / M_☉)_{\\rm glob}$',
                      x_min = -0.1,
                      extra_hlines = {2: (0.03, 'right')},
+                     mass_step_labels_loc = 'right',
                      pop1_color = '#2a9d8f', pop2_color = '#e76f51',
                      hline_color = '#555555', vline_color = '#555555').savefig(
                         fig_path / Path('ztf_latents_ddlr_globmass.pdf')
