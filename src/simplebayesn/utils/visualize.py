@@ -672,11 +672,11 @@ def plot_latent_bias(chain: GibbsChainData,
             color_mask = np.asarray(color_vec) <= color_vec_split_value
             for mask, color in [(color_mask, pop1_color), (~color_mask, pop2_color)]:
                 if mask.sum() > 1:
-                    kde = gaussian_kde(y[mask], weights=1/yerr[mask]**2)
+                    kde = gaussian_kde(y[mask])
                     ax.fill_betweenx(y_grid, kde(y_grid), alpha=0.25, color=color)
                     ax.plot(kde(y_grid), y_grid, color=color, lw=1.2)
         else:
-            kde = gaussian_kde(y, weights=1/yerr**2)
+            kde = gaussian_kde(y)
             ax.fill_betweenx(y_grid, kde(y_grid), alpha=0.3, color=pop1_color)
             ax.plot(kde(y_grid), y_grid, color=pop1_color, lw=1.2)
 
