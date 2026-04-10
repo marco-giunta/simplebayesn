@@ -9,20 +9,22 @@ LATEX_MAP = {
     'restframe_gz':'(g-z)'
 }
 
-def plot_ztf_gibbs_subset_cornerplot(ztf_less, ztf_larger, ztf_complete, name, value, kind):
+def plot_ztf_gibbs_subset_cornerplot(ztf_less, ztf_larger, ztf_complete,
+                                     name, value, kind, colors):
     kind = kind if name != 'd_dlr' else ''
     label = f'${LATEX_MAP[name]}' + '_{\\rm ' + kind + '}$'
     fig = simplebayesn.visualize.compare_posterior_cornerplots([ztf_less, ztf_larger, ztf_complete],
-                                                               start_idx = 1000,
+                                                               start_idx = 1000, contours_colors = colors,
                                                                labels = [f'{label} < {value:.1f}', f'{label} > {value:.1f}', 'all'])
     return fig
 
-def plot_ztf_gibbs_subset_cornerplot_color(ztf_less, ztf_larger, ztf_complete, name, value, kind):
+def plot_ztf_gibbs_subset_cornerplot_color(ztf_less, ztf_larger, ztf_complete,
+                                           name, value, kind, colors):
     pp = ['tau', 'RB', 'c0_int', 'sigmac_int', 'M0_int', 'beta_int']
     kind = kind if name != 'd_dlr' else ''
     label = f'${LATEX_MAP[name]}' + '_{\\rm ' + kind + '}$'
     fig = simplebayesn.visualize.compare_posterior_cornerplots([ztf_less, ztf_larger, ztf_complete],
-                                                               start_idx = 1000,
+                                                               start_idx = 1000, contours_colors = colors,
                                                                labels = [f'{label} < {value:.1f}', f'{label} > {value:.1f}', 'all'],
                                                                params_to_plot = pp)
     return fig
@@ -55,17 +57,28 @@ def ztf_gibbs_mass_splits_posterior_cornerplots(argv = None):
     gd_ztf = simplebayesn.load_gibbs_data(ztf_complete_h5_path)
 
     global_vars = {
-        'mass': 10,
-        'd_dlr': 1.5,
-        'restframe_gz': 1,
+        'mass': (10, ("#EF9F27","#7F77DD","#1D9E75")),
+        'd_dlr': (1.5, ("#5DCAA5", "#378ADD", "#D4537E")),
+        'restframe_gz': (1, ("#ED93B1","#97C459","#85B7EB"))
     }
 
     local_vars = {
-        'mass': 8.9,
-        'restframe_gz': 1
+        'mass': (8.9, ("#FAC775","#E24B4A","#D85A30")),
+        'restframe_gz': (1, ("#D85A30","#1D9E75","#BA7517"))
     }
+    
+    # global_vars = {
+    #     'mass': (10, ("#378ADD","#7F77DD","#1D9E75")),
+    #     'd_dlr': (1.5, ("#5DCAA5","#FAC775","#D4537E")),
+    #     'restframe_gz': (1, ("#ED93B1","#97C459","#85B7EB"))
+    # }
 
-    for k, v in global_vars.items():
+    # local_vars = {
+    #     'mass': (8.9, ("#EF9F27","#E24B4A","#D85A30")),
+    #     'restframe_gz': (1, ("#D85A30","#1D9E75","#BA7517"))
+    # }
+
+    for k, (v, colors) in global_vars.items():
         print(f'Plotting global {k}...')
         plot_ztf_gibbs_subset_cornerplot(
             simplebayesn.load_gibbs_data(
@@ -75,7 +88,7 @@ def ztf_gibbs_mass_splits_posterior_cornerplots(argv = None):
                 ztf_subset_path / Path(f'ztf_global_{k}_larger_than_{v}.h5')
             ),
             gd_ztf,
-            k, v, 'glob'
+            k, v, 'glob', colors
         ).savefig(
             fig_path / Path(f'ztf_global_{k}.pdf')
         )
@@ -88,12 +101,12 @@ def ztf_gibbs_mass_splits_posterior_cornerplots(argv = None):
                 ztf_subset_path / Path(f'ztf_global_{k}_larger_than_{v}.h5')
             ),
             gd_ztf,
-            k, v, 'glob'
+            k, v, 'glob', colors
         ).savefig(
             fig_path / Path(f'ztf_global_{k}_color.pdf')
         )
 
-    for k, v in local_vars.items():
+    for k, (v, colors) in local_vars.items():
         print(f'Plotting local {k}...')
         plot_ztf_gibbs_subset_cornerplot(
             simplebayesn.load_gibbs_data(
@@ -103,7 +116,7 @@ def ztf_gibbs_mass_splits_posterior_cornerplots(argv = None):
                 ztf_subset_path / Path(f'ztf_local_{k}_larger_than_{v}.h5')
             ),
             gd_ztf,
-            k, v, 'loc'
+            k, v, 'loc', colors
         ).savefig(
             fig_path / Path(f'ztf_local_{k}.pdf')
         )
@@ -116,7 +129,7 @@ def ztf_gibbs_mass_splits_posterior_cornerplots(argv = None):
                 ztf_subset_path / Path(f'ztf_local_{k}_larger_than_{v}.h5')
             ),
             gd_ztf,
-            k, v, 'loc'
+            k, v, 'loc', colors
         ).savefig(
             fig_path / Path(f'ztf_local_{k}_color.pdf')
         )
