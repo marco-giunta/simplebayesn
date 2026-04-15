@@ -17,7 +17,7 @@ def get_sbsn2017_global_params():
         'RB':4.1,
     }
 
-def simulate_simplebayesn_salt_data_from_redshift_saltcov_dist(
+def simulate_simplebayesn_salt_data_from_redshift_cov_arr(
         redshift: np.ndarray,
         redshift_err: np.ndarray,
         cov: np.ndarray,
@@ -25,8 +25,8 @@ def simulate_simplebayesn_salt_data_from_redshift_saltcov_dist(
         seed: int = None,
         sigma_pec: float = 300,
         cosmo = Planck18,
-        c_app_obs_lim: tuple[float] = None,
-        x_obs_lim: tuple[float] = None,
+        clim: tuple[float] = None,
+        xlim: tuple[float] = None,
 ):
     needed_vars = set(get_sbsn2017_global_params().keys())
     missing_vars = needed_vars - set(global_params_true.keys())
@@ -64,33 +64,31 @@ def simulate_simplebayesn_salt_data_from_redshift_saltcov_dist(
         rng.normal(size = (num_samples, 3))
     )).T
 
-    if c_app_obs_lim is not None:
-        idx_c  = c_app_obs <= c_app_obs_lim[1]
-        idx_c &= c_app_obs >= c_app_obs_lim[0]
+    if clim is not None:
+        idx_c  = c_app_obs <= clim[1]
+        idx_c &= c_app_obs >= clim[0]
     else:
         idx_c = np.array([True] * num_samples)
 
-    if x_obs_lim is not None:
-        idx_x  = x_obs <= x_obs_lim[1]
-        idx_x &= x_obs >= x_obs_lim[0]
+    if xlim is not None:
+        idx_x  = x_obs <= xlim[1]
+        idx_x &= x_obs >= xlim[0]
     else:
         idx_x = np.array([True] * num_samples)
 
     idx = idx_c & idx_x
 
     return dict(
-        observed_data = SaltData(**dict(
-            data = dict(
-                m_app = m_app_obs[idx],
-                c_app = c_app_obs[idx],
-                x = x_obs[idx],
-                z = z[idx],
-                sigma_z = sigma_z[idx],
-                dist_mod = dist_mod_of_z[idx],
-                sigma_mu_z2 = (s**2)[idx],
-            ),
+        observed_data = SaltData(
+            m_app = m_app_obs[idx],
+            c_app = c_app_obs[idx],
+            x = x_obs[idx],
+            z = z[idx],
+            sigma_z = sigma_z[idx],
+            dist_mod = dist_mod_of_z[idx],
+            sigma_mu_z2 = (s**2)[idx],
             cov = cov[idx],
-        )),
+        ),
         latent_params_true = dict(
             m_app = m_app[idx],
             c_app = c_app[idx],
