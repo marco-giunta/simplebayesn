@@ -7,6 +7,52 @@ from .param_array import from_param_array
 
 @dataclass(frozen=True)
 class SaltData:
+    """
+    Immutable container for preprocessed SALT2 supernova light-curve data.
+
+    Stores observed photometric and spectroscopic quantities alongside their
+    measurement covariance matrices for a sample of Type Ia supernovae. The
+    inverse covariance matrices are computed automatically on construction.
+
+    Parameters
+    ----------
+    m_app : np.ndarray, shape (N,)
+        Apparent magnitude derived from the SALT2 flux parameter x0 via
+        ``m_app = -2.5 * log10(x0) + offset``.
+    c_app : np.ndarray, shape (N,)
+        Observed (apparent) color parameter from the SALT2 fit.
+    x : np.ndarray, shape (N,)
+        Observed stretch parameter (x1) from the SALT2 fit.
+    z : np.ndarray, shape (N,)
+        Observed spectroscopic redshift.
+    sigma_z : np.ndarray, shape (N,)
+        Reported error on the redshift measurement.
+    dist_mod : np.ndarray, shape (N,)
+        Distance modulus computed from the assumed cosmology at redshift ``z``.
+    sigma_mu_z2 : np.ndarray, shape (N,)
+        Variance on the distance modulus contribution from redshift uncertainty
+        and peculiar-velocity scatter (see Mandel et al. 2017).
+    cov : np.ndarray, shape (N, 3, 3)
+        Stack of 3x3 measurement covariance matrices in the
+        (m_app, c_app, x) basis, one per supernova.
+
+    Attributes
+    ----------
+    inv_cov : np.ndarray, shape (N, 3, 3)
+        Stack of matrix inverses of ``cov``, computed automatically in
+        ``__post_init__``.
+    num_samples : int
+        Number of supernovae in the dataset (length of ``cov``).
+    data_params_names : list of str
+        Ordered list of scalar-array field names (excludes ``cov`` and
+        ``inv_cov``).
+
+    Notes
+    -----
+    This dataclass is frozen (immutable after construction). Passing
+    ``pandas.Series`` objects for any scalar field is safe; they are cast
+    to ``numpy.ndarray`` automatically.
+    """
     m_app: np.ndarray
     c_app: np.ndarray
     x: np.ndarray
@@ -99,6 +145,75 @@ class SaltData:
 
 @dataclass
 class GibbsChainData:
+    """
+    Container for the output of a Gibbs (or emcee) MCMC chain over the
+    BayeSN hierarchical model parameters.
+
+    Stores both global (population-level) hyperparameters and per-supernova
+    latent parameters at each sampled iteration. All arrays are allocated
+    lazily: if ``num_chain_samples`` and ``num_data_samples`` are provided at
+    construction, zero-filled arrays are created for any field left as
+    ``None``; otherwise fields remain ``None`` until populated (e.g. via
+    ``load``).
+
+    Parameters
+    ----------
+    num_chain_samples : int or None
+        Number of MCMC iterations stored. Set automatically after loading.
+    num_data_samples : int or None
+        Number of supernovae in the dataset. Set automatically after loading.
+
+    Global hyperparameter arrays (each shape ``(num_chain_samples,)``)
+    -------------------------------------------------------------------
+    tau : np.ndarray or None
+        Scale parameter of the dust extinction prior E(B-V) ~ Exp(tau).
+    RB : np.ndarray or None
+        Total-to-selective dust extinction ratio R_B = A_B / E(B-V).
+    x0 : np.ndarray or None
+        Population mean stretch parameter.
+    sigmax2 : np.ndarray or None
+        Population variance of the stretch distribution.
+    c0_int : np.ndarray or None
+        Population mean intrinsic color.
+    alphac_int : np.ndarray or None
+        Slope of the intrinsic color-stretch relation.
+    sigmac_int2 : np.ndarray or None
+        Residual variance of the intrinsic color distribution.
+    M0_int : np.ndarray or None
+        Population mean intrinsic absolute magnitude.
+    alpha : np.ndarray or None
+        Intrinsic stretch-magnitude slope (alpha * x).
+    beta_int : np.ndarray or None
+        Intrinsic color-magnitude slope (beta_int * c_int).
+    sigma_int2 : np.ndarray or None
+        Residual intrinsic magnitude scatter variance.
+
+    Latent per-supernova arrays (each shape ``(num_chain_samples, num_data_samples)``)
+    ----------------------------------------------------------------------------------
+    m_app : np.ndarray or None
+        Posterior apparent magnitude latent variable for each SN.
+    c_app : np.ndarray or None
+        Posterior apparent color latent variable for each SN.
+    x : np.ndarray or None
+        Posterior stretch latent variable for each SN.
+    E : np.ndarray or None
+        Posterior dust reddening E(B-V) for each SN.
+    dist_mod : np.ndarray or None
+        Posterior distance modulus for each SN.
+
+    Attributes
+    ----------
+    sigmax : np.ndarray
+        Square root of ``sigmax2`` (population stretch standard deviation).
+    sigmac_int : np.ndarray
+        Square root of ``sigmac_int2`` (intrinsic color standard deviation).
+    sigma_int : np.ndarray
+        Square root of ``sigma_int2`` (intrinsic magnitude scatter).
+    global_params_names : list of str
+        Names of all global hyperparameter fields.
+    latent_params_names : list of str
+        Names of all per-SN latent parameter fields.
+    """
     num_chain_samples: int | None = None
     num_data_samples: int | None = None
     # globals
@@ -159,6 +274,41 @@ class GibbsChainData:
         return np.sqrt(self.sigma_int2)
 
     def load(self, path: str | Path, marginal: bool = False):
+        """
+        Load chain data from an HDF5 file into this object.
+
+        Supports two formats:
+
+        - **Gibbs format** (default, ``marginal=False``): an HDF5 file written
+          by :meth:`save`, containing datasets for every global and latent
+          parameter. Both ``num_chain_samples`` and ``num_data_samples`` are
+          inferred from the shape of the stretch array ``x``.
+        - **emcee format** (``marginal=True``): an emcee ``HDFBackend`` file
+          containing only the flattened global-parameter chain (no latent
+          variables). ``num_chain_samples`` is inferred from the chain length;
+          ``num_data_samples`` is not set.
+
+        Parameters
+        ----------
+        path : str or Path
+            Path to the HDF5 file to read.
+        marginal : bool, optional
+            If ``True``, treat the file as an emcee backend and read only the
+            global (marginalized) hyperparameter chain. Default is ``False``.
+
+        Returns
+        -------
+        GibbsChainData
+            The object itself (mutated in place), to allow chained calls such
+            as ``GibbsChainData().load(path)``.
+
+        Raises
+        ------
+        KeyError
+            If ``marginal=False`` but the file does not contain latent-variable
+            datasets (i.e. it is an emcee file). Use :func:`load_emcee_data` in
+            that case.
+        """
         if marginal:
             reader = HDFBackend(Path(path), read_only = True)
             global_params = from_param_array(reader.get_chain(flat = True).T)
@@ -174,15 +324,68 @@ class GibbsChainData:
         return self
 
     def save(self, path: str | Path):
+        """
+        Save all chain arrays to an HDF5 file.
+
+        Creates one HDF5 dataset per parameter (both global and latent), using
+        the parameter name as the dataset key. The file is created (or
+        overwritten) at ``path``.
+
+        Parameters
+        ----------
+        path : str or Path
+            Destination path for the HDF5 file.
+        """
         with h5py.File(Path(path), 'w') as f:
             for param in self.latent_params_names + self.global_params_names:
                 f.create_dataset(param, data = getattr(self, param))
 
 def load_gibbs_data(path: str | Path):
+    """
+    Load a full Gibbs chain (globals + latents) from an HDF5 file.
+
+    Convenience wrapper around ``GibbsChainData().load(path)``. The file must
+    have been written by :meth:`GibbsChainData.save` and must contain datasets
+    for all latent-parameter arrays.
+
+    Parameters
+    ----------
+    path : str or Path
+        Path to the HDF5 file.
+
+    Returns
+    -------
+    GibbsChainData
+        Populated chain object with both global and latent parameter arrays.
+
+    Raises
+    ------
+    ValueError
+        If the file does not contain latent-variable datasets (e.g. it is an
+        emcee backend file). Use :func:`load_emcee_data` instead.
+    """
     try:
         return GibbsChainData().load(path)
     except KeyError:
         raise ValueError('Please use load_emcee_data to open emcee data (latents are missing from provided file)')
 
 def load_emcee_data(path: str | Path):
+    """
+    Load a marginalized (globals-only) chain from an emcee HDF5 backend file.
+
+    Convenience wrapper around ``GibbsChainData().load(path, marginal=True)``.
+    The file must be a valid ``emcee.backends.HDFBackend`` file. Only global
+    hyperparameters are loaded; latent per-SN arrays are not populated.
+
+    Parameters
+    ----------
+    path : str or Path
+        Path to the emcee HDF5 backend file.
+
+    Returns
+    -------
+    GibbsChainData
+        Chain object with global parameter arrays populated and latent arrays
+        left as ``None``.
+    """
     return GibbsChainData().load(path, marginal=True)
