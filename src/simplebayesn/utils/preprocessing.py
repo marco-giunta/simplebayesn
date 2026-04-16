@@ -9,12 +9,12 @@ def preprocess_data(data: pd.DataFrame, cosmo = Planck18, x0_to_mB_offset: float
     """
     Preprocess supernova light-curve fit results into observed quantities and their measurement
     covariances suitable for downstream cosmological analysis.
-
+ 
     This function:
     - Copies the input table-like DataFrame and verifies the presence of required columns.
     - Computes the observed apparent magnitude m_app from the SALT2 flux parameter x0 via
         m_app = -2.5 * log10(x0) + x0_to_mB_offset.
-    - AssemBles other observed quantities directly from DataFrame columns: color (c_app),
+    - Assembles other observed quantities directly from DataFrame columns: color (c_app),
         stretch (x), redshift (z) and redshift uncertainty (sigma_z).
     - Computes the distance modulus for each redshift using the provided cosmology object
         (expects an object with a .distmod(redshift).value API, e.g. an astropy.cosmology instance).
@@ -22,7 +22,7 @@ def preprocess_data(data: pd.DataFrame, cosmo = Planck18, x0_to_mB_offset: float
         measurement redshift uncertainty and a contribution from peculiar velocity scatter.
     - Transforms the covariance matrices for (x0, c, x1) into the covariance matrices for
         (m_app, c_app, x) using the analytic Jacobian of the m_app transformation.
-
+ 
     Parameters
     ----------
     data : pandas.DataFrame
@@ -39,45 +39,54 @@ def preprocess_data(data: pd.DataFrame, cosmo = Planck18, x0_to_mB_offset: float
             - 'cov_x0_c'     : covariance between x0 and c
             - 'cov_x0_x1'    : covariance between x0 and x1
             - 'cov_x1_c'     : covariance between x1 and c
-    cosmo : object
+ 
+        Alternatively, if the column ``'mB'`` is present it is used directly as the apparent
+        magnitude (bypassing the x0 log-transform), and the covariance transformation uses
+        ``'mB_err'``, ``'cov_mB_x1'``, and ``'cov_mB_c'`` instead of their x0 counterparts.
+    cosmo : object, optional
         Cosmology object used to compute the distance modulus. The object must provide a
         method or function distmod(z) returning a quantity or object with a .value attribute
         (e.g. astropy.cosmology.Cosmology.distmod). Default is Planck18.
-    x0_to_mB_offset : float
+    x0_to_mB_offset : float, optional
         Additive offset applied when converting -2.5*log10(x0) to an apparent magnitude scale.
         Default is 10.635.
-    sigma_pec : float
+    sigma_pec : float, optional
         Peculiar velocity scatter in km/s (used to increase error bars on inferred distance
         moduli using linear propagation of errors in redshift). Default is 300 km/s.
-
+ 
     Returns
     -------
     SaltData
         A frozen dataclass instance (SaltData) with the following fields:
-        - data : dict
-            Dictionary with the following keys and length-N array-like values (N = numBer of rows):
-                - 'm_app'    : apparent magnitude computed from x0
-                - 'c_app'    : observed color (c)
-                - 'x'        : observed stretch (x1)
-                - 'z'            : redshift
-                - 'sigma_z'      : redshift uncertainty
-                - 'dist_mod' : distance modulus computed from cosmo for each redshift
-                - 'sigma_mu_z2'  : variance contribution to distance modulus from redshift errors
-                                  and peculiar velocity scatter
-        - cov : numpy.ndarray, shape (N, 3, 3)
+        - m_app : np.ndarray, shape (N,)
+            Apparent magnitude computed from x0 (or taken directly from 'mB').
+        - c_app : np.ndarray, shape (N,)
+            Observed color (c).
+        - x : np.ndarray, shape (N,)
+            Observed stretch (x1).
+        - z : np.ndarray, shape (N,)
+            Redshift.
+        - sigma_z : np.ndarray, shape (N,)
+            Redshift uncertainty.
+        - dist_mod : np.ndarray, shape (N,)
+            Distance modulus computed from cosmo for each redshift.
+        - sigma_mu_z2 : np.ndarray, shape (N,)
+            Variance contribution to distance modulus from redshift errors
+            and peculiar velocity scatter.
+        - cov : np.ndarray, shape (N, 3, 3)
             Stack of transformed 3x3 covariance matrices for (m_app, c_app, x) for each
             input row. The transformation applies the Jacobian corresponding to
             m_app = -2.5 * log10(x0) + offset while leaving c and x1 unchanged.
-        - inv_cov : numpy.ndarray, shape (N, 3, 3)
+        - inv_cov : np.ndarray, shape (N, 3, 3)
             Stack of inverses of the transformed covariance matrices (one 3x3 inverse per row).
-
+ 
     Raises
     ------
     ValueError
         If any of the required columns listed above are missing from `data`. Note that x0 values
         must be strictly positive for the logarithm; non-positive x0 will produce NaNs or
         infinities in the magnitude and its covariance.
-
+ 
     Notes
     -----
     - The internal covariance transformation assumes the input covariance for each row is given
@@ -85,9 +94,47 @@ def preprocess_data(data: pd.DataFrame, cosmo = Planck18, x0_to_mB_offset: float
       the off-diagonal covariances given by cov_x0_c, cov_x0_x1, cov_x1_c.
     - The function returns a SaltData frozen dataclass (not a generic dict) for safe, typed
       downstream usage; fields are plain numpy arrays and Python-native containers for ease of use.
+ 
+    Examples
+    --------
+    ::
+ 
+        import pandas as pd
+        from astropy.cosmology import FlatLambdaCDM
+        import astropy.units as u
+ 
+        df = pd.read_csv('my_salt2_fits.csv')
+        cosmo = FlatLambdaCDM(H0=70 * u.km / u.s / u.Mpc, Om0=0.3)
+        salt_data = preprocess_data(df, cosmo=cosmo)
+        print(salt_data)
     """
     
     def compute_transformed_cov(row: pd.Series, sigma_mB: bool):
+        """
+        Compute the 3x3 measurement covariance matrix in the (m_app, c_app, x) basis
+        for a single supernova.
+ 
+        If ``sigma_mB`` is ``False``, the covariance is first assembled in the
+        (x0, c, x1) basis and then propagated to (m_app, c, x1) via the Jacobian
+        of ``m_app = -2.5 * log10(x0) + offset``. If ``sigma_mB`` is ``True``,
+        the (mB, c, x1) covariance is used directly without transformation.
+ 
+        Parameters
+        ----------
+        row : pandas.Series
+            A single row from the input DataFrame, containing the photometric fit
+            parameters and their uncertainties.
+        sigma_mB : bool
+            If ``True``, read covariance entries from the ``mB``-based columns
+            (``'mB_err'``, ``'cov_mB_x1'``, ``'cov_mB_c'``) and skip the
+            Jacobian transformation. If ``False``, use the ``x0``-based columns
+            and apply the log-transform Jacobian.
+ 
+        Returns
+        -------
+        np.ndarray, shape (3, 3)
+            Measurement covariance matrix in the (m_app, c_app, x) basis.
+        """
         if not sigma_mB:
             x0 = row['x0']
 
