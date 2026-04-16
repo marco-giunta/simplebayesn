@@ -24,6 +24,12 @@ PARAMS_LATEX_MAP = {
     'sigmac_int':r'$\sigma_{c, \text{int}}$',
     'sigmax':r'$\sigma_x$',
 }
+"""
+Mapping from parameter names to LaTeX display strings for axis labels and titles.
+ 
+Covers all global hyperparameters and their derived standard-deviation forms
+(e.g. ``'sigmax'`` for ``sqrt(sigmax2)``).
+"""
 
 def posterior_cornerplot(chain: GibbsChainData,
                          start_idx: int = 0, stop_idx: int = None,
@@ -37,6 +43,89 @@ def posterior_cornerplot(chain: GibbsChainData,
                          params_to_plot: list = None, fig = None,
                          latex: bool = True,
                          *args, **kwargs):
+    """
+    Produce a corner plot of the marginal and joint posterior distributions
+    for a subset of global hyperparameters.
+ 
+    Wraps the ``corner.corner`` function with BayeSN-specific defaults, optional
+    mean/std indicator lines on the diagonal panels, and support for overlaying
+    ground-truth parameter values (e.g. from a simulation).
+ 
+    Parameters
+    ----------
+    chain : GibbsChainData
+        MCMC chain from which to draw samples. Any parameter accessible via
+        ``chain[param_name]`` (i.e. in ``global_params_names`` or derived
+        quantities such as ``'sigmax'``, ``'sigmac_int'``, ``'sigma_int'``)
+        can be included in ``params_to_plot``.
+    start_idx : int, optional
+        First iteration index to include (for burn-in removal). Default is 0.
+    stop_idx : int or None, optional
+        Last iteration index (exclusive). ``None`` uses the full chain.
+    title : str or None, optional
+        Overall figure title. If ``None``, no title is added.
+    levels : tuple of float, optional
+        Contour probability levels passed to ``corner``. Defaults correspond
+        to the 1-sigma (0.393) and 2-sigma (0.864) enclosed probability for
+        a 2-D Gaussian.
+    show_joint_mean : bool, optional
+        If ``True`` and ``truth_dict`` is ``None``, overlay the marginal
+        posterior mean on the off-diagonal panels as a cross-hair. Default
+        is ``True``.
+    truth_dict : dict or None, optional
+        Dictionary mapping parameter names to ground-truth scalar values.
+        If provided, these are shown instead of the posterior mean cross-hair.
+        Default is ``None``.
+    show_marginal_mean : bool, optional
+        If ``True``, draw a vertical line at the posterior mean on each
+        diagonal (marginal) panel. Default is ``False``.
+    show_marginal_std : bool, optional
+        If ``True``, draw vertical dashed (±1sigma) and dotted (±2sigma) lines on
+        each diagonal panel. Default is ``False``.
+    show_datapoints : bool, optional
+        Whether to show individual chain samples as scatter points in the
+        off-diagonal panels (passed to ``corner``). Default is ``False``.
+    show_titles : bool, optional
+        Whether to show summary statistics as panel titles (passed to
+        ``corner``). Default is ``True``.
+    contours_color : str, optional
+        Colour for contour lines and fills. Default is ``'dodgerblue'``.
+    mean_color : str, optional
+        Colour for the mean cross-hair (or truth cross-hair) indicator.
+        Default is ``'darkblue'``.
+    std_color : str, optional
+        Colour for the ±1sigma/±2sigma lines on diagonal panels. Default is
+        ``'darkblue'``.
+    truth_color : str, optional
+        Colour for truth cross-hair when ``truth_dict`` is provided. Default
+        is ``'black'``.
+    axes_labels_fontsize : int, optional
+        Font size for axis labels. Default is 25.
+    diag_labels_fontsize : int, optional
+        Font size for diagonal panel titles. Default is 18.
+    ticks_labels_fontsize : int, optional
+        Font size for tick labels. Default is 16.
+    title_fontsize : int, optional
+        Font size for the figure title. Default is 25.
+    params_to_plot : list of str or None, optional
+        Ordered list of parameter names to include. If ``None``, defaults to
+        ``['tau', 'RB', 'x0', 'sigmax', 'c0_int', 'alphac_int', 'sigmac_int',
+        'M0_int', 'alpha', 'beta_int', 'sigma_int']``.
+    fig : matplotlib.figure.Figure or None, optional
+        Existing figure to draw into (for overlaying multiple chains). If
+        ``None``, a new figure is created. Default is ``None``.
+    latex : bool, optional
+        If ``True``, use LaTeX strings from ``PARAMS_LATEX_MAP`` as axis
+        labels. Default is ``True``.
+    *args, **kwargs
+        Additional positional and keyword arguments forwarded to
+        ``corner.corner``.
+ 
+    Returns
+    -------
+    matplotlib.figure.Figure
+        The corner-plot figure.
+    """
     if params_to_plot is None:
         params_to_plot = ['tau', 'RB',
                           'x0', 'sigmax',
@@ -97,6 +186,57 @@ def trace_plot(chain: GibbsChainData, param: str,
                title_fontsize: int = 14, axes_labels_fontsize: int = None,
                legend_fontsize: int = None,
                ax = None, latex: bool = True):
+    """
+    Plot the MCMC trace (chain values over iterations) for a single parameter.
+ 
+    Draws the sampled values of ``param`` against iteration number, with
+    optional horizontal lines at the posterior mean and ±1sigma/±2sigma levels to
+    aid visual convergence assessment.
+ 
+    Parameters
+    ----------
+    chain : GibbsChainData
+        MCMC chain containing the parameter to plot.
+    param : str
+        Name of the parameter to trace. Must be accessible as an attribute of
+        ``chain`` (e.g. ``'tau'``, ``'RB'``, ``'sigma_int'``).
+    start_idx : int, optional
+        First iteration to include (for burn-in removal). Default is 0.
+    stop_idx : int or None, optional
+        Last iteration (exclusive). ``None`` uses the full chain.
+    title : str or None, optional
+        Axes title. If ``None``, the title is auto-generated as
+        ``"<param_label>: mean ± std"``. Default is ``None``.
+    show_mean : bool, optional
+        If ``True``, draw a horizontal red line at the posterior mean.
+        Default is ``True``.
+    show_std : bool, optional
+        If ``True``, draw dashed (±1sigma) and dotted (±2sigma) horizontal lines.
+        Default is ``True``.
+    figsize : tuple or None, optional
+        Figure size passed to ``plt.subplots`` when creating a new figure.
+        Ignored if ``ax`` is provided. Default is ``None``.
+    show_legend : bool, optional
+        Whether to show the legend with mean and std values. Default is
+        ``True``.
+    title_fontsize : int, optional
+        Font size for the axes title. Default is 14.
+    axes_labels_fontsize : int or None, optional
+        Font size for the x-axis label. Default is ``None`` (matplotlib
+        default).
+    legend_fontsize : int or None, optional
+        Font size for the legend. Default is ``None``.
+    ax : matplotlib.axes.Axes or None, optional
+        Axes to draw into. If ``None``, a new figure and axes are created.
+    latex : bool, optional
+        If ``True``, use the LaTeX string from ``PARAMS_LATEX_MAP`` as the
+        axes title when ``title`` is ``None``. Default is ``True``.
+ 
+    Returns
+    -------
+    matplotlib.axes.Axes
+        The axes containing the trace plot.
+    """
     if ax is None:
         fig, ax = plt.subplots(figsize=figsize)
 
@@ -134,6 +274,68 @@ def marginal_posterior(chain: GibbsChainData, param: str,
                        legend_fontsize: int = None,
                        ax = None, latex: bool = True,
                        *args, **kwargs):
+    """
+    Plot the marginal posterior distribution for a single global parameter.
+ 
+    Renders either a KDE or a histogram of the sampled values of ``param``,
+    with optional vertical lines marking the posterior mean and ±1sigma/±2sigma
+    levels.
+ 
+    Parameters
+    ----------
+    chain : GibbsChainData
+        MCMC chain containing the parameter to plot.
+    param : str
+        Name of the parameter to plot. Must be accessible as an attribute of
+        ``chain``.
+    start_idx : int, optional
+        First iteration to include (for burn-in removal). Default is 0.
+    stop_idx : int or None, optional
+        Last iteration (exclusive). ``None`` uses the full chain.
+    title : str or None, optional
+        Axes title. If ``None``, the parameter LaTeX label (or name) is used.
+    kind : str, optional
+        Plot style: ``'kde'`` for a kernel density estimate (via
+        ``seaborn.kdeplot``) or ``'hist'`` for a density-normalised histogram
+        (via ``seaborn.histplot``). Default is ``'kde'``.
+    show_mean : bool, optional
+        If ``True``, draw a vertical red line at the posterior mean.
+        Default is ``True``.
+    show_std : bool, optional
+        If ``True``, draw dashed (±1sigma) and dotted (±2sigma) vertical lines.
+        Default is ``True``.
+    figsize : tuple or None, optional
+        Figure size passed to ``plt.subplots`` when creating a new figure.
+        Ignored if ``ax`` is provided. Default is ``None``.
+    show_legend : bool, optional
+        Whether to show the legend with mean and std values. Default is
+        ``True``.
+    title_fontsize : int, optional
+        Font size for the axes title. Default is 18.
+    axes_labels_fontsize : int, optional
+        Font size for the x-axis label. Default is 14.
+    legend_fontsize : int or None, optional
+        Font size for the legend. Default is ``None``.
+    ax : matplotlib.axes.Axes or None, optional
+        Axes to draw into. If ``None``, a new figure and axes are created.
+    latex : bool, optional
+        If ``True``, use the LaTeX string from ``PARAMS_LATEX_MAP`` as axis
+        label and title when these are not explicitly provided. Default is
+        ``True``.
+    *args, **kwargs
+        Additional positional and keyword arguments forwarded to the seaborn
+        plotting function (``kdeplot`` or ``histplot``).
+ 
+    Returns
+    -------
+    matplotlib.axes.Axes
+        The axes containing the marginal posterior plot.
+ 
+    Raises
+    ------
+    ValueError
+        If ``kind`` is not ``'kde'`` or ``'hist'``.
+    """
     if ax is None:
         fig, ax = plt.subplots(figsize=figsize)
     v = getattr(chain, param)[start_idx:stop_idx]
@@ -175,6 +377,61 @@ def intrinsic_magnitude_color_distribution_animation(chain: GibbsChainData,
                                                      labels_fontsize = 12, title_fontsize = 14,
                                                      ticks_fontsize = 11, text_fontsize = 11,
                                                      figsize = (6, 5)):
+    """
+    Animate the evolution of the intrinsic SN population over MCMC iterations.
+ 
+    Produces a ``matplotlib.animation.FuncAnimation`` showing, at each
+    sampled frame, a scatter plot of intrinsic colour (c_int) versus
+    stretch-corrected intrinsic absolute magnitude (M_int - alpha*x), together
+    with a line whose slope equals the current beta_int. This is useful for
+    diagnosing mixing in the beta_int-population plane.
+ 
+    The intrinsic variables are derived from the chain latents as:
+ 
+    - ``c_int = c_app - E``
+    - ``M_int = m_app - dist_mod - R_B * E``
+    - plotted quantity: ``M_int - alpha * x``
+ 
+    Parameters
+    ----------
+    chain : GibbsChainData
+        MCMC chain containing both global and latent parameter arrays.
+    start_idx : int, optional
+        First iteration to include. Default is 0.
+    stop_idx : int or None, optional
+        Last iteration (exclusive). ``None`` uses the full chain.
+    title : str or None, optional
+        Axes title. If ``None`` and ``verbose=True``, an auto-generated
+        descriptive title is used; otherwise no title.
+    step_stride : int, optional
+        Number of iterations between successive animation frames. A larger
+        value produces fewer, faster-running frames. Default is 500.
+    color_dust : bool, optional
+        If ``True``, colour-code data points by the dust reddening E using
+        the inferno colormap and add a colorbar. Default is ``True``.
+    verbose : bool, optional
+        If ``True``, use descriptive axis labels and an auto-generated title
+        instead of compact LaTeX-only labels. Default is ``False``.
+    labels_fontsize : int, optional
+        Font size for axis labels. Default is 12.
+    title_fontsize : int, optional
+        Font size for the axes title. Default is 14.
+    ticks_fontsize : int, optional
+        Font size for tick labels. Default is 11.
+    text_fontsize : int, optional
+        Font size for the in-plot iteration and beta_int annotation.
+        Default is 11.
+    figsize : tuple, optional
+        Figure size ``(width, height)`` in inches. Default is ``(6, 5)``.
+ 
+    Returns
+    -------
+    anim : matplotlib.animation.FuncAnimation
+        The animation object. Call ``anim.save(...)`` or display in a
+        Jupyter notebook with ``HTML(anim.to_jshtml())``.
+    fig : matplotlib.figure.Figure
+        The underlying figure.
+    """
     params = chain[start_idx:stop_idx]
 
     c_int = params['c_app'] - params['E']
@@ -266,9 +523,51 @@ def extinguished_magnitude_color_distribution_animation(
     figsize = (6, 5)
 ):
     """
-    Animate the evolution of the *extinguished* SN population:
-    apparent color (c_app) vs. extinguished absolute magnitude (m_app - dist_mod),
-    showing the slope governed by R_B at each MCMC iteration.
+    Animate the evolution of the extinguished SN population over MCMC iterations.
+ 
+    Produces a ``matplotlib.animation.FuncAnimation`` showing, at each
+    sampled frame, a scatter plot of apparent colour (c_app) versus
+    stretch-corrected extinguished absolute magnitude (m_app - dist_mod - alpha*x),
+    together with a line whose slope equals the current R_B. This is the
+    observable-space analogue of
+    :func:`intrinsic_magnitude_color_distribution_animation`.
+ 
+    Parameters
+    ----------
+    chain : GibbsChainData
+        MCMC chain containing both global and latent parameter arrays.
+    start_idx : int, optional
+        First iteration to include. Default is 0.
+    stop_idx : int or None, optional
+        Last iteration (exclusive). ``None`` uses the full chain.
+    title : str or None, optional
+        Axes title. If ``None`` and ``verbose=True``, an auto-generated
+        descriptive title is used; otherwise no title.
+    step_stride : int, optional
+        Number of iterations between successive animation frames. Default is 500.
+    color_dust : bool, optional
+        If ``True``, colour-code data points by dust reddening E using the
+        inferno colormap and add a colorbar. Default is ``True``.
+    verbose : bool, optional
+        If ``True``, use descriptive axis labels and an auto-generated title.
+        Default is ``False``.
+    labels_fontsize : int, optional
+        Font size for axis labels. Default is 12.
+    title_fontsize : int, optional
+        Font size for the axes title. Default is 14.
+    ticks_fontsize : int, optional
+        Font size for tick labels. Default is 11.
+    text_fontsize : int, optional
+        Font size for the in-plot iteration and R_B annotation. Default is 11.
+    figsize : tuple, optional
+        Figure size ``(width, height)`` in inches. Default is ``(6, 5)``.
+ 
+    Returns
+    -------
+    anim : matplotlib.animation.FuncAnimation
+        The animation object.
+    fig : matplotlib.figure.Figure
+        The underlying figure.
     """
     # --- extract sliced chain data
     params = chain[start_idx:stop_idx]
@@ -374,7 +673,76 @@ def compare_posterior_cornerplots(chains: list[GibbsChainData],
                                   legend_fontsize: int = 20, show_sn_num: bool = True,
                                   params_to_plot: list = None,
                                   *args, **kwargs):
-    
+    """
+    Overlay corner plots from multiple MCMC chains on a single figure.
+ 
+    Iteratively calls :func:`posterior_cornerplot` for each chain in
+    ``chains``, drawing them onto the same figure using distinct colours.
+    Optionally adds a legend identifying each chain by a user-supplied label
+    (and, if ``show_sn_num=True``, the number of supernovae in each chain).
+ 
+    Parameters
+    ----------
+    chains : list of GibbsChainData
+        MCMC chains to compare. Each must be a populated ``GibbsChainData``
+        object.
+    start_idx : int, optional
+        First iteration to include for all chains. Default is 0.
+    stop_idx : int or None, optional
+        Last iteration (exclusive) for all chains. ``None`` uses the full chain.
+    title : str or None, optional
+        Overall figure title. Default is ``None``.
+    levels : tuple of float, optional
+        Contour probability levels, forwarded to :func:`posterior_cornerplot`.
+        Default is ``(0.393, 0.864)``.
+    labels : list of str or None, optional
+        Human-readable label for each chain, used in the figure legend.
+        Must have the same length as ``chains`` if provided. Default is
+        ``None`` (no legend).
+    show_joint_mean : bool, optional
+        Whether to show the posterior mean cross-hair in off-diagonal panels.
+        Default is ``True``.
+    truth_dict : dict or None, optional
+        Ground-truth parameter values shown as a cross-hair on all chains.
+        Default is ``None``.
+    contours_colors : list of str or None, optional
+        Contour colours for each chain. If ``None``, the first
+        ``len(chains)`` Tableau colours are used. Must match
+        ``len(chains)`` if provided.
+    mean_colors : list of str or None, optional
+        Mean-indicator colours for each chain. If ``None``, defaults to
+        ``contours_colors``. Must match ``len(chains)`` if provided.
+    truth_color : str, optional
+        Colour for the truth cross-hair. Default is ``'black'``.
+    axes_labels_fontsize : int, optional
+        Font size for axis labels. Default is 25.
+    ticks_labels_fontsize : int, optional
+        Font size for tick labels. Default is 16.
+    title_fontsize : int, optional
+        Font size for the figure title. Default is 25.
+    legend_fontsize : int, optional
+        Font size for the legend. Default is 20.
+    show_sn_num : bool, optional
+        If ``True``, append the number of supernovae (from
+        ``chain.num_data_samples``) to each legend label. Default is ``True``.
+    params_to_plot : list of str or None, optional
+        Parameters to include in the corner plot. Forwarded to
+        :func:`posterior_cornerplot`. Default is ``None`` (uses that
+        function's default list).
+    *args, **kwargs
+        Additional arguments forwarded to :func:`posterior_cornerplot`.
+ 
+    Returns
+    -------
+    matplotlib.figure.Figure
+        The figure containing all overlaid corner plots.
+ 
+    Raises
+    ------
+    ValueError
+        If ``contours_colors`` or ``mean_colors`` is provided but its length
+        does not match ``len(chains)``.
+    """
     if contours_colors is not None and len(contours_colors) != len(chains):
         raise ValueError(f'{len(chains) = } but {len(contours_colors) = }')
     if mean_colors is not None and len(mean_colors) != len(chains):
@@ -437,9 +805,53 @@ def intrinsic_magnitude_color_distribution_frame(
     figsize = (6, 5)
 ):
     """
-    Plot a single MCMC iteration of the intrinsic SN population:
-    intrinsic color (c_int) vs. stretch-corrected intrinsic magnitude,
-    including the beta_int slope line.
+    Plot a single MCMC iteration of the intrinsic SN population.
+ 
+    Produces a static scatter plot of intrinsic colour (c_int) versus
+    stretch-corrected intrinsic absolute magnitude (M_int - alpha*x) at a
+    specified chain iteration, with a line of slope beta_int overlaid.
+    This is the single-frame version of
+    :func:`intrinsic_magnitude_color_distribution_animation`.
+ 
+    Parameters
+    ----------
+    chain : GibbsChainData
+        MCMC chain containing both global and latent parameter arrays.
+    iteration : int
+        Index of the chain iteration to display (within the sliced range
+        ``[start_idx, stop_idx)``).
+    start_idx : int, optional
+        First iteration to include in the slice. Default is 0.
+    stop_idx : int or None, optional
+        Last iteration (exclusive) for the slice. Default is ``None``.
+    title : str or None, optional
+        Axes title. If ``None`` and ``verbose=True``, a descriptive title is
+        used; otherwise no title.
+    color_dust : bool, optional
+        If ``True``, colour-code points by dust reddening E. Default is
+        ``True``.
+    verbose : bool, optional
+        If ``True``, use descriptive axis labels. Default is ``False``.
+    labels_fontsize : int, optional
+        Font size for axis labels. Default is 12.
+    title_fontsize : int, optional
+        Font size for the axes title. Default is 14.
+    ticks_fontsize : int, optional
+        Font size for tick labels. Default is 11.
+    text_fontsize : int, optional
+        Font size for the in-plot annotation. Default is 11.
+    figsize : tuple, optional
+        Figure size ``(width, height)`` in inches. Default is ``(6, 5)``.
+ 
+    Returns
+    -------
+    fig : matplotlib.figure.Figure
+    ax : matplotlib.axes.Axes
+ 
+    Raises
+    ------
+    IndexError
+        If ``iteration`` is outside the valid range ``[0, num_sliced_iters)``.
     """
 
     params = chain[start_idx:stop_idx]
@@ -542,9 +954,53 @@ def extinguished_magnitude_color_distribution_frame(
     figsize = (6, 5)
 ):
     """
-    Plot a single MCMC iteration of the extinguished SN population:
-    apparent color (c_app) vs. stretch-corrected extinguished magnitude,
-    including the R_B slope line.
+    Plot a single MCMC iteration of the extinguished SN population.
+ 
+    Produces a static scatter plot of apparent colour (c_app) versus
+    stretch-corrected extinguished magnitude (m_app - dist_mod - alpha*x)
+    at a specified chain iteration, with a line of slope R_B overlaid.
+    This is the single-frame version of
+    :func:`extinguished_magnitude_color_distribution_animation`.
+ 
+    Parameters
+    ----------
+    chain : GibbsChainData
+        MCMC chain containing both global and latent parameter arrays.
+    iteration : int
+        Index of the chain iteration to display (within the sliced range
+        ``[start_idx, stop_idx)``).
+    start_idx : int, optional
+        First iteration to include in the slice. Default is 0.
+    stop_idx : int or None, optional
+        Last iteration (exclusive) for the slice. Default is ``None``.
+    title : str or None, optional
+        Axes title. If ``None`` and ``verbose=True``, a descriptive title is
+        used; otherwise no title.
+    color_dust : bool, optional
+        If ``True``, colour-code points by dust reddening E. Default is
+        ``True``.
+    verbose : bool, optional
+        If ``True``, use descriptive axis labels. Default is ``False``.
+    labels_fontsize : int, optional
+        Font size for axis labels. Default is 12.
+    title_fontsize : int, optional
+        Font size for the axes title. Default is 14.
+    ticks_fontsize : int, optional
+        Font size for tick labels. Default is 11.
+    text_fontsize : int, optional
+        Font size for the in-plot annotation. Default is 11.
+    figsize : tuple, optional
+        Figure size ``(width, height)`` in inches. Default is ``(6, 5)``.
+ 
+    Returns
+    -------
+    fig : matplotlib.figure.Figure
+    ax : matplotlib.axes.Axes
+ 
+    Raises
+    ------
+    IndexError
+        If ``iteration`` is outside the valid range ``[0, num_sliced_iters)``.
     """
 
     params = chain[start_idx:stop_idx]
@@ -634,7 +1090,105 @@ def plot_latent_bias(chain: GibbsChainData,
                      legend_fontsize: int = 10,
                      show_kde: bool = True,
                      figsize = (10,15)):
-
+    """
+    Multi-panel diagnostic plot of posterior latent quantities against a host-galaxy property.
+ 
+    Produces a 5-panel stacked figure showing, as a function of a user-supplied
+    host-galaxy vector (e.g. host stellar mass or specific star-formation rate):
+ 
+    1. A histogram of the host property.
+    2. The posterior mean stretch correction ``alpha * x`` per SN.
+    3. The posterior mean intrinsic colour term ``beta_int * c_int`` per SN.
+    4. The posterior mean dust-reddening term ``R_B * E`` per SN.
+    5. The posterior mean residual magnitude offset
+       ``delta_M = (m_app - mu - R_B*E) - (M0_int + alpha*x + beta_int*c_int)`` per SN.
+ 
+    For panels 2–5 the function also overlays a binned weighted-mean trend and,
+    optionally, KDE marginals of the y-values in side panels. All four scatter
+    panels share the same x-axis.
+ 
+    Parameters
+    ----------
+    chain : GibbsChainData
+        MCMC chain containing both global and latent parameter arrays.
+    host_vec : np.ndarray, shape (N,)
+        Host-galaxy property values, one per supernova.
+    host_vec_err : np.ndarray, shape (N,) or None, optional
+        Uncertainties on ``host_vec``. If ``None``, zero errors are assumed.
+    xlabel : str or None, optional
+        Label for the x-axis (and panel-0 y-axis). Default is ``None``.
+    xval : float, str, or None, optional
+        If a float, draw a vertical dashed line at this x value in all
+        scatter panels. The special strings ``'median'`` and ``'mean'`` use
+        the corresponding statistic of ``host_vec``. Default is ``None``.
+    color_vec : np.ndarray or None, optional
+        Array used to split supernovae into two sub-populations for colour
+        coding. Points with ``color_vec <= color_vec_split_value`` are drawn
+        in ``pop1_color``; the rest in ``pop2_color``. Default is ``None``
+        (all points use ``pop1_color``).
+    color_vec_split_value : float or None, optional
+        Threshold value for splitting ``color_vec`` into two populations.
+        Ignored if ``color_vec`` is ``None``. Default is ``None``.
+    clabel : str or None, optional
+        Prefix for the legend labels that describe the two populations (e.g.
+        ``'log M_* '``). Default is ``None``.
+    start_idx : int, optional
+        First MCMC iteration to include. Default is 0.
+    stop_idx : int or None, optional
+        Last MCMC iteration (exclusive). ``None`` uses the full chain.
+    x_min, x_max : float or None, optional
+        Manual x-axis limits for all scatter panels. Default is ``None``
+        (auto-scaled).
+    markersize : int, optional
+        Scatter point size. Default is 15.
+    pop1_color, pop2_color : str, optional
+        Colours for the two sub-populations. Defaults are ``'#3778bf'`` and
+        ``'#e05c3a'``.
+    n_bins_trend : int, optional
+        Number of bins for the weighted-mean trend overlay. Default is 10.
+    trend_color : str, optional
+        Colour for the binned-trend line and markers. Default is ``'#1E1E1E'``.
+    bin_capsize, bin_markersize : int, optional
+        Cap size and marker size for the binned-trend error bars. Defaults are
+        3 and 5.
+    n_bins_hist : int, optional
+        Number of bins for the host-property histogram (panel 0). Default is 20.
+    hist_color, hist_edge_color : str, optional
+        Face and edge colours for the histogram bars. Defaults are ``'#aaaaaa'``
+        and ``'#666666'``.
+    hline_color : str, optional
+        Colour for reference horizontal lines (y=0 and optional ±0.05 mass-step
+        lines). Default is ``'#444444'``.
+    vline_color : str, optional
+        Colour for the optional vertical reference line at ``xval``. Default is
+        ``'#444444'``.
+    extra_hlines : dict or None, optional
+        Additional horizontal lines to draw on specific panels. Should be a
+        dict mapping panel index (int) to ``(value, position)`` tuples, where
+        ``position`` is ``'left'`` or ``'right'`` for the text label placement.
+        Default is ``None``.
+    mass_step_labels_loc : str or None, optional
+        If ``'left'`` or ``'right'``, draw ±0.05 reference lines with text
+        labels on panel 4 (delta_M). Default is ``None``.
+    legend_fontsize : int, optional
+        Font size for the population legend. Default is 10.
+    show_kde : bool, optional
+        If ``True``, add a narrow KDE marginal side panel to the right of
+        panels 2–5. Default is ``True``.
+    figsize : tuple, optional
+        Figure size ``(width, height)`` in inches. Default is ``(10, 15)``.
+ 
+    Returns
+    -------
+    matplotlib.figure.Figure
+        The figure containing all panels.
+ 
+    Raises
+    ------
+    ValueError
+        If ``mass_step_labels_loc`` is not one of ``'left'``, ``'right'``,
+        or ``None``.
+    """
     def add_binned_trend(ax, x, y, yerr):
         x, y, yerr = np.asarray(x), np.asarray(y), np.asarray(yerr)
 
@@ -851,9 +1405,53 @@ def extinguished_magnitude_color_distribution_mean(
     figsize=(6, 5)
 ):
     """
-    Plot the mean (+-1 std) across MCMC iterations of the extinguished SN population:
-    apparent color (c_app) vs. stretch-corrected extinguished magnitude,
-    including the R_B slope line with shading for R_B uncertainty.
+    Plot the posterior-mean extinguished SN population in colour-magnitude space.
+ 
+    Shows the per-SN posterior mean apparent colour (c_app) versus
+    stretch-corrected extinguished magnitude (m_app - dist_mod - alpha*x),
+    with error bars from the posterior standard deviation, and a slope line
+    (with 1sigma shading) whose slope equals the posterior mean R_B. This is
+    a static, mean-collapsed summary complementary to
+    :func:`extinguished_magnitude_color_distribution_animation`.
+ 
+    Parameters
+    ----------
+    chain : GibbsChainData
+        MCMC chain containing both global and latent parameter arrays.
+    start_idx : int, optional
+        First iteration to include. Default is 0.
+    stop_idx : int or None, optional
+        Last iteration (exclusive). ``None`` uses the full chain.
+    title : str or None, optional
+        Axes title. If ``None`` and ``verbose=True``, a descriptive title is
+        used; otherwise no title.
+    color_dust : bool, optional
+        If ``True``, colour-code points by the per-SN posterior mean dust
+        reddening E and add a colorbar. Default is ``True``.
+    verbose : bool, optional
+        If ``True``, use descriptive axis labels and an auto-generated title.
+        Default is ``False``.
+    labels_fontsize : int, optional
+        Font size for axis labels and colorbar label. Default is 12.
+    title_fontsize : int, optional
+        Font size for the axes title. Default is 14.
+    ticks_fontsize : int, optional
+        Font size for tick labels. Default is 11.
+    text_fontsize : int, optional
+        Font size for the in-plot R_B annotation. Default is 11.
+    elinewidth : float, optional
+        Line width for the error bars. Default is 0.85.
+    alpha : float, optional
+        Transparency for the error bars. Default is 0.45.
+    capsize : int, optional
+        Cap size for error bars. Default is 0 (no caps).
+    figsize : tuple, optional
+        Figure size ``(width, height)`` in inches. Default is ``(6, 5)``.
+ 
+    Returns
+    -------
+    fig : matplotlib.figure.Figure
+    ax : matplotlib.axes.Axes
     """
     params = chain[start_idx:stop_idx]
 
