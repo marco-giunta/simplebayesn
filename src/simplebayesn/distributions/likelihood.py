@@ -6,7 +6,42 @@ from scipy.special import logsumexp
 
 def marginal_loglikelihood(global_params: dict,
                            observed_data: SaltData):
-    
+    """
+    Compute the total marginal log-likelihood of the observed data under the
+    Simple-BayeSN hierarchical model.
+
+    The marginalisation yields a closed-form expression (eq. 37 of Mandel et al. 2017)
+    involving a Gaussian normalisation factor, an exponential prior factor,
+    and a log-Normal-CDF term (computed stably via ``scipy.special.log_ndtr``).
+
+    The per-SN effective covariance is
+
+    .. math::
+
+        \\Sigma = \\Sigma_{\\rm int} + \\Sigma_{\\rm obs,n}
+                  + \\sigma_{\\mu,z,n}^2\\, e_1 e_1^\\top,
+
+    where :math:`\\Sigma_{\\rm int}` is the intrinsic covariance from
+    :func:`~simplebayesn.utils.intrinsic.get_cov_int`, :math:`\\Sigma_{\\rm
+    obs,n}` is the per-SN measurement covariance, and the third term adds the
+    redshift-induced distance-modulus variance along the magnitude axis.
+
+    Parameters
+    ----------
+    global_params : dict
+        Dictionary of global hyperparameter values.  All keys returned by
+        :func:`~simplebayesn.utils.param_array.from_param_array` must be
+        present.
+    observed_data : SaltData
+        Preprocessed supernova dataset as returned by
+        :func:`~simplebayesn.utils.preprocessing.preprocess_data`.
+
+    Returns
+    -------
+    float
+        Sum of the per-SN marginal log-likelihoods, i.e.
+        :math:`\\sum_n \\log p(\\phi_n \\mid \\theta)`.
+    """
     mean_int = get_mean_int(global_params).flatten()
     cov_int = get_cov_int(global_params)
     e1 = np.array([1, 0, 0])
