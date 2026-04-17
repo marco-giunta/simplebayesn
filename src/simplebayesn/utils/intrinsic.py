@@ -1,9 +1,11 @@
 import numpy as np
 
-def get_mean_int(global_params: dict):
+def get_mean_int(global_params: dict[str, float | np.floating], kind: str = 'analytic') -> np.ndarray:
     """
     Compute the mean of the intrinsic (M_int, c_int, x) population distribution in the form of a 3D Gaussian,
     instead of the conditional P(M_int | c_int, x)P(c_int | x)P(x) conditional form of the Simple-BayeSN model.
+
+    This is a convenience wrapper to either get_mean_int_analytic or get_mean_int_numeric.
  
     Parameters
     ----------
@@ -11,26 +13,35 @@ def get_mean_int(global_params: dict):
         Dictionary of global hyperparameter values. Required keys:
         ``'M0_int'``, ``'c0_int'``, ``'x0'``, ``'alpha'``,
         ``'beta_int'``, ``'alphac_int'``.
+    kind : str, default 'analytic'
+        Kind of computation performed. If "analytic", the analytic expression
+        for the intrinsic covariance is used; if "numeric", the numeric version
+        based on matrix inversion is used. Any other value results in error.
  
     Returns
     -------
     np.ndarray, shape (3, 1)
         Mean vector [mu_M, mu_c, mu_x]^T of the joint intrinsic distribution,
         in the order (M_int, c_int, x).
-    """
-    mu = np.array([global_params['M0_int'], global_params['c0_int'], global_params['x0']]).reshape((3, 1))
-    A = np.array([
-        [0, global_params['beta_int'], global_params['alpha']],
-        [0, 0, global_params['alphac_int']],
-        [0, 0, 0]
-    ])
-    M = np.linalg.inv(np.eye(3) - A)
-    return M @ mu
 
-def get_cov_int(global_params: dict):
+    See also
+    --------
+    get_mean_int_analytic : Analytic version of this calculation.
+    get_mean_int_numeric : Numeric version of this calculation.
+    """
+    if kind == 'analytic':
+        return get_mean_int_analytic(global_params=global_params)
+    elif kind == 'numeric':
+        return get_mean_int_numeric(global_params=global_params)
+    else:
+        raise ValueError(f'Invalid {kind=}, choose "numeric" or "analytic" instead')
+
+def get_cov_int(global_params: dict[str, float | np.floating], kind: str = 'analytic') -> np.ndarray:
     """
     Compute the covariance matrix of the intrinsic (M_int, c_int, x) population distribution in the form of a 3D Gaussian,
     instead of the conditional P(M_int | c_int, x)P(c_int | x)P(x) conditional form of the Simple-BayeSN model.
+
+    This is a convenience wrapper to either get_cov_int_analytic or get_cov_int_numeric.
  
     Parameters
     ----------
@@ -38,6 +49,10 @@ def get_cov_int(global_params: dict):
         Dictionary of global hyperparameter values. Required keys:
         ``'alpha'``, ``'beta_int'``, ``'alphac_int'``,
         ``'sigma_int2'``, ``'sigmac_int2'``, ``'sigmax2'``.
+    kind : str
+        Kind of computation performed. If "analytic", the analytic expression
+        for the intrinsic covariance is used; if "numeric", the numeric version
+        based on matrix inversion is used. Any other value results in error.
  
     Returns
     -------
@@ -47,20 +62,18 @@ def get_cov_int(global_params: dict):
  
     See Also
     --------
-    get_cov_int_analytic : Closed-form version of this calculation.
+    get_cov_int_analytic : Analytic version of this calculation.
+    get_cov_int_numeric : Numeric version of this calculation.
     get_mean_int : Corresponding mean vector.
     """
-    A = np.array([
-        [0, global_params['beta_int'], global_params['alpha']],
-        [0, 0, global_params['alphac_int']],
-        [0, 0, 0]
-    ])
-    M = np.linalg.inv(np.eye(3) - A)
-    S = np.diag(np.array([global_params['sigma_int2'], global_params['sigmac_int2'], global_params['sigmax2']]))
-    C = M @ S @ M.T
-    return C
+    if kind == 'analytic':
+        return get_cov_int_analytic(global_params=global_params)
+    elif kind == 'numeric':
+        return get_cov_int_numeric(global_params=global_params)
+    else:
+        raise ValueError(f'Invalid {kind=}, choose "numeric" or "analytic" instead')
 
-def get_mean_int_numeric(global_params: dict):
+def get_mean_int_numeric(global_params: dict) -> np.ndarray:
     """
     Numerically compute the mean of the intrinsic population distribution.
  
@@ -89,7 +102,7 @@ def get_mean_int_numeric(global_params: dict):
     M = np.linalg.inv(np.eye(3) - A)
     return M @ mu
 
-def get_cov_int_numeric(global_params: dict):
+def get_cov_int_numeric(global_params: dict) -> np.ndarray:
     """
     Numerically compute the covariance of the intrinsic population distribution.
  
@@ -119,7 +132,7 @@ def get_cov_int_numeric(global_params: dict):
     C = M @ S @ M.T
     return C
 
-def get_cov_int_analytic(global_params: dict):
+def get_cov_int_analytic(global_params: dict) -> np.ndarray:
     """
     Analytically compute the covariance of the intrinsic population distribution.
  
@@ -179,7 +192,7 @@ def get_cov_int_analytic(global_params: dict):
 
     return C
 
-def get_mean_int_analytic(global_params):
+def get_mean_int_analytic(global_params: dict) -> np.ndarray:
     """
     Analytically compute the mean of the intrinsic population distribution.
  
