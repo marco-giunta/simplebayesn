@@ -100,7 +100,7 @@ def get_mean_int_numeric(global_params: dict) -> np.ndarray:
         [0, 0, 0]
     ])
     M = np.linalg.inv(np.eye(3) - A)
-    return M @ mu
+    return (M @ mu).flatten()
 
 def get_cov_int_numeric(global_params: dict) -> np.ndarray:
     """
@@ -227,10 +227,10 @@ def get_mean_int_analytic(global_params: dict) -> np.ndarray:
     beta_int   = global_params['beta_int']
     alphac_int = global_params['alphac_int']
 
-    mean = np.zeros((3, 1))
+    mean = np.zeros(3)
 
-    mean[0, 0] = M0_int + beta_int * c0_int + (alpha + beta_int * alphac_int) * x0
-    mean[1, 0] = c0_int + alphac_int * x0
-    mean[2, 0] = x0
+    mean[0] = M0_int + beta_int * c0_int + (alpha + beta_int * alphac_int) * x0
+    mean[1] = c0_int + alphac_int * x0
+    mean[2] = x0
     
     return mean
