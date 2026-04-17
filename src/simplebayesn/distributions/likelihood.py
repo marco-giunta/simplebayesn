@@ -10,21 +10,9 @@ def marginal_loglikelihood(global_params: dict,
     Compute the total marginal log-likelihood of the observed data under the
     Simple-BayeSN hierarchical model.
 
-    The marginalisation yields a closed-form expression (eq. 37 of Mandel et al. 2017)
+    The marginalization yields a closed-form expression (eq. 37 of Mandel et al. 2017)
     involving a Gaussian normalisation factor, an exponential prior factor,
     and a log-Normal-CDF term (computed stably via ``scipy.special.log_ndtr``).
-
-    The per-SN effective covariance is
-
-    .. math::
-
-        \\Sigma = \\Sigma_{\\rm int} + \\Sigma_{\\rm obs,n}
-                  + \\sigma_{\\mu,z,n}^2\\, e_1 e_1^\\top,
-
-    where :math:`\\Sigma_{\\rm int}` is the intrinsic covariance from
-    :func:`~simplebayesn.utils.intrinsic.get_cov_int`, :math:`\\Sigma_{\\rm
-    obs,n}` is the per-SN measurement covariance, and the third term adds the
-    redshift-induced distance-modulus variance along the magnitude axis.
 
     Parameters
     ----------
@@ -57,9 +45,8 @@ def marginal_loglikelihood(global_params: dict,
     )
     d = np.column_stack((observed_data.m_app, observed_data.c_app, observed_data.x))
     y = d - mean_int - observed_data.dist_mod[:, np.newaxis] * e1 # np.outer(observed_data.dist_mod, e1)
-    # np.column_stack([observed_data.dist_mod, np.zeros_like(observed_data.dist_mod), np.zeros_like(observed_data.dist_mod)])
-
-    E_hat = sE**2 * np.einsum('i,nij,nj->n', eE, Sigma_inv, y)
+    
+    E_hat = sE ** 2 * np.einsum('i,nij,nj->n', eE, Sigma_inv, y)
 
     log_prefactor = np.log(sE * np.sqrt(2 * np.pi))
     v = y - E_hat[:, np.newaxis] * eE
@@ -68,8 +55,12 @@ def marginal_loglikelihood(global_params: dict,
         # np.log((2*np.pi)**3 / np.linalg.det(Sigma_inv))
         3 * np.log(2 * np.pi) - np.linalg.slogdet(Sigma_inv)[1]
     )
-    log_exp_factor = -np.log(global_params['tau']) + (0.5 * (sE/global_params['tau']) ** 2 - E_hat/global_params['tau'])
-    log_cdf_factor = log_ndtr(E_hat/sE - sE/global_params['tau'])
+    log_exp_factor = (
+        -np.log(global_params['tau'])
+        + 0.5 * (sE / global_params['tau']) ** 2
+        - E_hat / global_params['tau']
+    )
+    log_cdf_factor = log_ndtr(E_hat / sE - sE / global_params['tau'])
     result = log_prefactor + log_norm_factor + log_exp_factor + log_cdf_factor
 
     return result.sum()

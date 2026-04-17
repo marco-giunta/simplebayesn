@@ -17,30 +17,12 @@ The 11 parameters are, in order:
 ``sigmax2``, ``tau``, ``RB``.
 """
 
-IDX_POSITIVE_PARAMS = [
-    PARAM_KEYS.index(key) for key in [
-        'sigma_int2',
-        'sigmac_int2',
-        'sigmax2',
-        'tau'
-    ]
-]
-"""
-Indices into ``PARAM_KEYS`` of parameters that must be strictly positive.
-
-These correspond to variance and scale parameters:
-``sigma_int2``, ``sigmac_int2``, ``sigmax2``, and ``tau``.
-Used by the emcee prior to enforce positivity constraints.
-"""
-
 def to_param_array(hyper_params):
     """
     Convert a dictionary of global hyperparameters to a flat 1-D array.
 
     Extracts values from ``hyper_params`` in the canonical order defined by
-    ``PARAM_KEYS`` and stacks them into a single NumPy array. This is the
-    format expected by the emcee sampler (each walker position is a 1-D
-    array of length ``len(PARAM_KEYS)``).
+    ``PARAM_KEYS`` and stacks them into a single NumPy array.
 
     Parameters
     ----------
@@ -63,9 +45,7 @@ def from_param_array(x):
     """
     Convert a flat 1-D hyperparameter array back to a named dictionary.
 
-    Pairs elements of ``x`` with the corresponding names in ``PARAM_KEYS``,
-    returning a dictionary suitable for use with the likelihood, prior, and
-    intrinsic-distribution utilities.
+    Pairs elements of ``x`` with the corresponding names in ``PARAM_KEYS``.
 
     Parameters
     ----------
