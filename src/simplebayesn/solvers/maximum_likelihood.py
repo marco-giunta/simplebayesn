@@ -4,7 +4,6 @@ from scipy.optimize import minimize, approx_fprime
 from ..distributions.likelihood import marginal_loglikelihood
 from ..utils.param_array import (
     PARAM_KEYS,
-    IDX_POSITIVE_PARAMS,
     to_param_array,
     from_param_array
 )
