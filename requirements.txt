@@ -7,5 +7,5 @@ tqdm
 astropy
 corner
 emcee
-jax
+torch
 h5py

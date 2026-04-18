@@ -1,151 +1,103 @@
-import jax
-import jax.numpy as jnp
-from functools import partial
 from ...utils.data import SaltData
+from ...utils.param_array import from_param_batch
 import numpy as np
-from scipy.stats import gaussian_kde
-from scipy.integrate import dblquad
+import torch
 
-def preprocess_arguments_log_selection_probability_mc_jax(observed_data: SaltData, global_params):
-    return {
-        'observed_data_dist_mod':jnp.asarray(observed_data.dist_mod),
-        'observed_data_sigma_mu_z2':jnp.asarray(observed_data.sigma_mu_z2),
-        'observed_data_cov':jnp.asarray(observed_data.cov),
-        'observed_data_num_samples':observed_data.num_samples,
-        'observed_data_z':jnp.asarray(observed_data.z),
-        'tau':global_params['tau'],
-        'RB':global_params['RB'],
-        'x0':global_params['x0'],
-        'sigmax2':global_params['sigmax2'],
-        'c0_int':global_params['c0_int'],
-        'alphac_int':global_params['alphac_int'],
-        'sigmac_int2':global_params['sigmac_int2'],
-        'M0_int':global_params['M0_int'],
-        'alpha':global_params['alpha'],
-        'beta_int':global_params['beta_int'],
-        'sigma_int2':global_params['sigma_int2'],
-    }
+@torch.no_grad
+def log_selection_prob_mc_vectorized(
+        global_params_batch: torch.Tensor,
+        observed_data: SaltData,
+        clim: tuple[float, float],
+        xlim: tuple[float, float],
+        num_sim_per_sample: int,
+        seed: int = 0,
+        device: torch.device | str = 'cuda',
+        dtype: torch.dtype | str = torch.float32
+) -> torch.Tensor:
+    gen = torch.Generator(device = device)
+    gen.manual_seed(seed)
+    
+    W = global_params_batch.shape[0]
+    N = observed_data.num_samples
+    K = num_sim_per_sample
+    params = from_param_batch(
+        torch.as_tensor(
+            global_params_batch,
+            device = device, dtype = dtype
+        )
+    )
 
-def get_kde_interpolant_grids(c_sel, z_sel, c_com, z_com,
-                        nc = 1000, nz = 1000,
-                        eps=1e-8):
-    cmin, cmax = np.min(c_com), np.max(c_com)
-    zmin, zmax = np.min(z_com), np.max(z_com)
+    obs_dist_mod = torch.as_tensor(observed_data.dist_mod,
+                                   dtype = dtype, device = device)
+    sigma_mu_z2 = torch.as_tensor(observed_data.sigma_mu_z2,
+                                  dtype = dtype, device = device)
+    chol_cov = torch.linalg.cholesky(
+        torch.as_tensor(observed_data.cov,
+                        dtype = dtype, device = device)
+    )
 
-    kde_sel = gaussian_kde(np.vstack([c_sel, z_sel]))
-    kde_com = gaussian_kde(np.vstack([c_com, z_com]))
+    x = (
+        params['x0'][:, None, None]
+        + torch.sqrt(params['sigmax2'][:, None, None])
+        * torch.randn(W, N, K, dtype = dtype, device = device,
+                      generator = gen)
+    ) # (W, N, K)
 
-    def sel_prob_unnnorm(c, z, eps=eps):
-        cz = np.vstack([c, z])
-        return kde_sel(cz) / (kde_com(cz) + eps)
-    
-    integral = dblquad(sel_prob_unnnorm, zmin, zmax, cmin, cmax)[0]
+    c_int = (
+        params['c0_int'][:, None, None]
+        + params['alphac_int'][:, None, None] * x
+        + torch.sqrt(params['sigmac_int2'][:, None, None])
+        * torch.randn(W, N, K, dtype = dtype, device = device,
+                      generator = gen)
+    ) # (W, N, K)
 
-    def sel_prob(c, z, eps=eps):
-        return sel_prob_unnnorm(c, z, eps) / integral
-    
-    c_vec = np.linspace(cmin, cmax, nc)
-    z_vec = np.linspace(zmin, zmax, nz)
+    M_int = (
+        params['M0_int'][:, None, None]
+        + params['alpha'][:, None, None] * x
+        + params['beta_int'][:, None, None] * c_int
+        + torch.sqrt(params['sigma_int2'][:, None, None])
+        * torch.randn(W, N, K, dtype = dtype, device = device,
+                      generator = gen)
+    ) # (W, N, K)
 
-    c_grid, z_grid = np.meshgrid(c_vec, z_vec, indexing='ij')
+    E = torch.as_tensor(
+        np.random.default_rng(seed = seed).\
+            exponential(
+                scale = params['tau'][:, None, None].cpu(),
+                size = (W, N, K)
+            )
+    ).to(device = device, dtype = dtype) # (W, N, K)
 
-    positions = np.vstack([c_grid.ravel(), z_grid.ravel()])
-    sel_prob_grid = sel_prob(positions[0], positions[1]).T.reshape(c_grid.shape)
-    
-    c_vec = jnp.asarray(c_vec)
-    z_vec = jnp.asarray(z_vec)
-    sel_prob_grid = jnp.asarray(sel_prob_grid)
-
-    return c_vec, z_vec, sel_prob_grid
-
-@jax.jit
-def interpolate_selection_2d(c, z, c_vec, z_vec, sel_prob_grid):
-    nc = len(c_vec)
-    nz = len(z_vec)
-    
-    c_min = c_vec[0]
-    c_max = c_vec[-1]
-    z_min = z_vec[0]
-    z_max = z_vec[-1]
-    
-    outside = ((c < c_min) | (c > c_max) | (z < z_min) | (z > z_max))
-    
-    c_idx = (c - c_min) / (c_max - c_min) * (nc - 1)
-    z_idx = (z - z_min) / (z_max - z_min) * (nz - 1)
-    
-    c_idx = jnp.clip(c_idx, 0, nc - 1)
-    z_idx = jnp.clip(z_idx, 0, nz - 1)
-    
-    c_i0 = jnp.floor(c_idx).astype(int)
-    z_i0 = jnp.floor(z_idx).astype(int)
-    c_i1 = jnp.minimum(c_i0 + 1, nc - 1)
-    z_i1 = jnp.minimum(z_i0 + 1, nz - 1)
-    
-    c_frac = c_idx - c_i0
-    z_frac = z_idx - z_i0
-    
-    val_00 = sel_prob_grid[c_i0, z_i0]
-    val_01 = sel_prob_grid[c_i0, z_i1]
-    val_10 = sel_prob_grid[c_i1, z_i0]
-    val_11 = sel_prob_grid[c_i1, z_i1]
-    
-    val = (val_00 * (1 - c_frac) * (1 - z_frac) +
-           val_01 * (1 - c_frac) * z_frac +
-           val_10 * c_frac * (1 - z_frac) + 
-           val_11 * c_frac * z_frac)
-    
-    return jnp.where(outside, 0.0, val)
-
-
-@partial(jax.jit, static_argnames=[
-    #'observed_data_dist_mod', 'observed_data_sigma_mu_z2', 'observed_data_cov',
-    'observed_data_num_samples',
-    'clim', 'xlim',
-    'num_sim_per_sample', 'seed',
-    'use_kde_selection'
-])
-def log_selection_probability_mc_jax(tau, RB,
-                                     x0, sigmax2,
-                                     c0_int, alphac_int, sigmac_int2,
-                                     M0_int, alpha, beta_int, sigma_int2,
-                                     clim, xlim,
-                                     observed_data_dist_mod, observed_data_sigma_mu_z2, observed_data_cov,
-                                     observed_data_num_samples, observed_data_z,
-                                     num_sim_per_sample,
-                                     use_kde_selection: bool = False,
-                                     c_grid = None, z_grid = None, sel_prob_grid = None,
-                                     seed=0):
-    
-    key_x, key_c, key_M, key_E, key_dist_mod, key_noise = jax.random.split(jax.random.key(seed), 6)
-    shape_sim = (observed_data_num_samples, num_sim_per_sample)
-    x = x0 + jnp.sqrt(sigmax2) * jax.random.normal(key_x, shape_sim)
-    c_int = c0_int + alphac_int * x + jnp.sqrt(sigmac_int2) * jax.random.normal(key_c, shape_sim)
-    M_int = M0_int + alpha * x + beta_int * c_int + sigma_int2 * jax.random.normal(key_M, shape_sim)
-
-    E = tau * jax.random.exponential(key_E, shape_sim)
-    M_ext = M_int + RB * E
     c_app = c_int + E
-
-    dist_mod = observed_data_dist_mod[:, None] + jnp.sqrt(observed_data_sigma_mu_z2)[:, None] * jax.random.normal(key_dist_mod, shape_sim)
-    m_app = M_ext + dist_mod
+    m_app = (
+        M_int
+        + params['RB'][:, None, None] * E
+        + obs_dist_mod[None, :, None]
+        + torch.sqrt(sigma_mu_z2[None, :, None])
+        * torch.randn(W, N, K, dtype = dtype, device = device,
+                      generator = gen)
+    ) # (W, N, K)
 
     mcx = (
-        jnp.stack([m_app, c_app, x], axis=-1) +
-        jnp.einsum('nij,nsj->nsi', jnp.linalg.cholesky(observed_data_cov), jax.random.normal(key_noise, (*shape_sim, 3)))
+        torch.stack([m_app, c_app, x], dim = -1)
+        + torch.einsum(
+            'nij,wnkj->wnki', chol_cov, torch.randn(
+                W, N, K, 3, dtype = dtype, device = device,
+                generator = gen
+            )
+        )
     )
-    c_app_obs = mcx[..., 1]
-    x_obs = mcx[..., 2]
-    
-    if not use_kde_selection:
-        p = (
-            (c_app_obs > clim[0]) &
-            (c_app_obs < clim[1]) &
-            (x_obs > xlim[0]) &
-            (x_obs < xlim[1])
-        ).mean(axis=1)
-    else:
-        p = interpolate_selection_2d(c_app_obs, observed_data_z[:, None],
-                                     c_grid, z_grid, sel_prob_grid).mean(axis=1)
 
-    
-    return jnp.sum(jnp.log(p))
+    c_app_obs = mcx[..., 1] # (W, N, K)
+    x_obs     = mcx[..., 2] # (W, N, K)
+
+    selected = (
+        (c_app_obs > clim[0]) & (c_app_obs < clim[1]) &
+        (x_obs     > xlim[0]) & (x_obs     < xlim[1])
+    ) # (W, N, K) bool
+
+    log_p = torch.log(
+        selected.float().mean(dim = 2)
+    ) # (W, N)
+
+    return log_p.sum(dim = 1) # (W,)
