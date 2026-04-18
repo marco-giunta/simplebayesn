@@ -139,6 +139,10 @@ def posterior_cornerplot(chain: GibbsChainData,
     if truth_dict is None:
         joint_dist_points = means if show_joint_mean else None
     else:
+        for s in ['sigmax', 'sigmac_int', 'sigma_int']:
+            if truth_dict.get(s, None) is None:
+                truth_dict[s] = np.sqrt(truth_dict[f'{s}2'])
+                truth_dict.pop(f'{s}2')
         joint_dist_points = np.array([truth_dict[p] for p in params_to_plot])
 
     fig = corner(
