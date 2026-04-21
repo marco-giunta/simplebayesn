@@ -60,7 +60,7 @@ def get_default_ranges() -> dict:
             'sigmac_int2': (0.001, 0.01),
             'M0_int': (-20, -18),
             'alpha': (-0.16, -0.14),
-            'beta_int': (2.1, 2.3),
+            'beta_int': (-1, 1),
             'sigma_int2': (0.01, 0.2)
         }
     }
