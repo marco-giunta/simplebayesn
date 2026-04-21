@@ -1,5 +1,6 @@
 import numpy as np
 import emcee
+from pathlib import Path
 from ..distributions.likelihood import marginal_loglikelihood_vectorized
 from ..utils.param_array import from_param_array
 from ..utils.data import SaltData
@@ -300,7 +301,7 @@ def emcee_sampler(
         Nx: int = 50,
         sn_batch_size: int = 32,
         # emcee infrastructure
-        backend = None,
+        path: Path | str = None,
         resume: bool = False,
         progress: bool = True,
         # torch infrastructure
@@ -313,7 +314,7 @@ def emcee_sampler(
     Uses emcee's ``vectorize=True`` mode so that all ``num_walkers`` proposals
     are passed to ``log_prob`` as a single ``(W, 11)`` numpy array at each
     step, evaluated in one batched GPU call, and returned as a ``(W,)`` array.
-    This eliminates the W sequential Python→GPU round-trips that would arise
+    This eliminates the W sequential Python->GPU round-trips that would arise
     from serial or multiprocessing evaluation.
  
     No ``pool`` is used.  All parallelism over walkers is achieved by
@@ -398,9 +399,9 @@ def emcee_sampler(
         Grid resolution along each axis.  Default is 50.
     sn_batch_size : int, optional
         SNe per loop iteration in the grid computation.  Default is 32.
-    backend : emcee.backends.Backend or None, optional
-        emcee HDF5 backend for checkpointing.  If ``None``, the chain is
-        stored only in memory.
+    path : str or Path or None, optional
+        path to emcee HDF5 backend for checkpointing.  If ``None``,
+        the chain is stored only in memory.
     resume : bool, optional
         If ``True``, continue from the state stored in ``backend``;
         ``initial_values`` and ``num_burnin`` are ignored.  Default is
@@ -476,7 +477,7 @@ def emcee_sampler(
             raise ValueError("mlim is required when selection='grid'")
 
 
-    # vectorized log_prob: (W, 11) → (W,)
+    # vectorized log_prob: (W, 11) -> (W,)
     if not selection:
         log_prob = partial(
             log_posterior_vectorized,
@@ -506,6 +507,11 @@ def emcee_sampler(
             device=device,
             dtype=dtype
         )
+
+    if path is not None:
+        backend = emcee.backends.HDFBackend(Path(path))
+    else:
+        backend = None
 
     sampler = emcee.EnsembleSampler(
         num_walkers, 11, log_prob,
