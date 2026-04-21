@@ -510,6 +510,8 @@ def emcee_sampler(
 
     if path is not None:
         backend = emcee.backends.HDFBackend(Path(path))
+        with backend.open('w') as f:
+            f.attrs['num_data_samples'] = observed_data.num_samples
     else:
         backend = None
 

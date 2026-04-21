@@ -309,14 +309,16 @@ class GibbsChainData:
             datasets (i.e. it is an emcee file). Use :func:`load_emcee_data` in
             that case.
         """
+        path = Path(path)
         if marginal:
-            reader = HDFBackend(Path(path), read_only = True)
+            reader = HDFBackend(path, read_only = True)
             global_params = from_param_array(reader.get_chain(flat = True).T)
             for param in self.global_params_names:
                 setattr(self, param, global_params[param])
             self.num_chain_samples = len(global_params['tau'])
+            self.num_data_samples = h5py.File(path).attrs.get('num_data_samples', None)
         else:
-            with h5py.File(Path(path), 'r') as f:
+            with h5py.File(path, 'r') as f:
                 for param in self.latent_params_names + self.global_params_names:
                     setattr(self, param, f[param][:])
             self.num_chain_samples, self.num_data_samples = self.x.shape
