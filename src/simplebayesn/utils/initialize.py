@@ -1,7 +1,7 @@
 import numpy as np
 from ..utils.param_array import to_param_array as to_param_array_fun
 
-def get_default_ranges() -> dict:
+def get_default_ranges(allow_negative_beta_int: bool = False) -> dict:
     """
     Return the default prior sampling ranges for all model parameters.
 
@@ -9,6 +9,11 @@ def get_default_ranges() -> dict:
     both global hyperparameters and per-SN latent parameters. These ranges
     are intended to produce starting points that are broadly consistent with
     typical Type Ia supernova populations, without being overly informative.
+
+    Parameters
+    ----------
+    allow_negative_beta_int: bool, default False
+        if True, the default beta_int range will be (-1, 1), otherwise (2.1, 2.3).
 
     Returns
     -------
@@ -38,7 +43,7 @@ def get_default_ranges() -> dict:
             - ``'sigmac_int2'``: intrinsic color variance ``(0.001, 0.01)``
             - ``'M0_int'``     : mean intrinsic magnitude ``(-20, -18)``
             - ``'alpha'``      : intrinsic stretch-magnitude ``(-0.16, -0.14)``
-            - ``'beta_int'``   : intrinsic color-magnitude slope ``(2.1, 2.3)``
+            - ``'beta_int'``   : intrinsic color-magnitude slope ``(2.1, 2.3) or (-1, 1)``
             - ``'sigma_int2'`` : intrinsic scatter variance ``(0.01, 0.2)``
     """
     return {
@@ -60,14 +65,15 @@ def get_default_ranges() -> dict:
             'sigmac_int2': (0.001, 0.01),
             'M0_int': (-20, -18),
             'alpha': (-0.16, -0.14),
-            'beta_int': (-1, 1),
+            'beta_int': (-1, 1) if allow_negative_beta_int else (2.1, 2.3),
             'sigma_int2': (0.01, 0.2)
         }
     }
 
 def _sample_initial_values_uniform(num_samples: int, seed: int = None,
                                    ranges_dict: dict = None,
-                                   marginal: bool = False) -> dict:
+                                   marginal: bool = False,
+                                   allow_negative_beta_int: bool = False) -> dict:
     """
     Draw a single set of initial values from uniform distributions.
 
@@ -90,6 +96,8 @@ def _sample_initial_values_uniform(num_samples: int, seed: int = None,
     marginal : bool, optional
         If ``True``, return only the ``'global_params'`` sub-dictionary,
         omitting the latent parameters. Default is ``False``.
+    allow_negative_beta_int: bool, default False
+        if True, the default beta_int range will be (-1, 1), otherwise (2.1, 2.3).
 
     Returns
     -------
@@ -101,7 +109,9 @@ def _sample_initial_values_uniform(num_samples: int, seed: int = None,
     """
     rng = np.random.default_rng(seed)
     if ranges_dict is None:
-        ranges_dict = get_default_ranges()
+        ranges_dict = get_default_ranges(
+            allow_negative_beta_int = allow_negative_beta_int
+        )
     
     lp = ranges_dict['latent_params']
     gp = ranges_dict['global_params']
@@ -135,7 +145,8 @@ def sample_initial_values_uniform(num_samples: int,
                                   seed: int | list[int] = None,
                                   ranges_dict: dict = None,
                                   marginal: bool = False,
-                                  to_param_array: bool = False):
+                                  to_param_array: bool = False,
+                                  allow_negative_beta_int: bool = False):
     """
     Sample initial parameter values uniformly within prior-consistent ranges.
 
@@ -164,6 +175,8 @@ def sample_initial_values_uniform(num_samples: int,
         to a flat NumPy array (or 2-D array for multiple seeds) using
         :func:`~simplebayesn.utils.param_array.to_param_array`. Can only be
         used when ``marginal=True``. Default is ``False``.
+    allow_negative_beta_int: bool, default False
+        if True, the default beta_int range will be (-1, 1), otherwise (2.1, 2.3).
 
     Returns
     -------
@@ -199,7 +212,8 @@ def sample_initial_values_uniform(num_samples: int,
             num_samples=num_samples,
             seed=n,
             ranges_dict=ranges_dict,
-            marginal=marginal
+            marginal=marginal,
+            allow_negative_beta_int=allow_negative_beta_int
         ) for n in seed]
         if to_param_array:
             if marginal is False:
@@ -211,7 +225,8 @@ def sample_initial_values_uniform(num_samples: int,
             num_samples=num_samples,
             seed=seed,
             ranges_dict=ranges_dict,
-            marginal=marginal
+            marginal=marginal,
+            allow_negative_beta_int=allow_negative_beta_int
         )
         if to_param_array:
             if marginal is False:
