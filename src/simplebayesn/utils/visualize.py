@@ -670,7 +670,7 @@ def compare_posterior_cornerplots(chains: list[GibbsChainData],
                                   title: str = None, levels = (0.393, 0.864),
                                   labels: list[str] = None,
                                   show_joint_mean: bool = True,
-                                  truth_dict: dict = None,
+                                  truth_dict: dict = None, truth_label: str = 'True values',
                                   contours_colors: list[str] = None, mean_colors: list[str] = None,
                                   truth_color: str = 'black',
                                   axes_labels_fontsize = 25,
@@ -710,6 +710,10 @@ def compare_posterior_cornerplots(chains: list[GibbsChainData],
     truth_dict : dict or None, optional
         Ground-truth parameter values shown as a cross-hair on all chains.
         Default is ``None``.
+    truth_label: str or None, optional
+        How truth_dict will show up in the legend. This requires truth_dict
+        to not be None.
+        Default is ``"True values"``.
     contours_colors : list of str or None, optional
         Contour colours for each chain. If ``None``, the first
         ``len(chains)`` Tableau colours are used. Must match
@@ -782,6 +786,11 @@ def compare_posterior_cornerplots(chains: list[GibbsChainData],
             Patch(facecolor=contours_colors[i], label=labels[i])
             for i in range(len(chains))
         ]
+        if truth_dict is not None and truth_label is not None:
+            legend_handles += [Patch(
+                facecolor=truth_color,
+                label=truth_label
+            )]
         ndim = len(params_to_plot) if params_to_plot is not None else 11
         axes = np.array(fig.axes).reshape((ndim, ndim))
         legend_ax = axes[0, -1]
