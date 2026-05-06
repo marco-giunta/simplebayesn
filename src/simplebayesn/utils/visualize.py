@@ -1536,11 +1536,11 @@ def extinguished_magnitude_color_distribution_mean(
     ax.set_ylim(M_max + pad_M, M_min - pad_M)  # reversed y-axis
 
     ax.set_xlabel(
-        "Posterior mean apparent color $\\langle c_{\\rm app} \\rangle$" if verbose else '$\\langle c_{\\rm app} \\rangle$',
+        "Posterior mean apparent color $\\langle c_s^{\\rm app} \\rangle$" if verbose else '$\\langle c_s^{\\rm app} \\rangle$',
         fontsize=labels_fontsize
     )
     ax.set_ylabel(
-        "Posterior mean $\\langle M_{\\rm ext} - \\alpha x \\rangle$" if verbose else '$\\langle M_{\\rm ext} - \\alpha x \\rangle$',
+        "Posterior mean $\\langle M_s^{\\rm ext} - \\alpha x_s \\rangle$" if verbose else '$\\langle M_s^{\\rm ext} - \\alpha x_s \\rangle$',
         fontsize=labels_fontsize
     )
 
