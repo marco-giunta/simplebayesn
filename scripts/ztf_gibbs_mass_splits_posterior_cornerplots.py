@@ -5,7 +5,7 @@ from argparse import ArgumentParser
 
 LATEX_MAP = {
     'd_dlr':'dDLR',
-    'mass':'\\log (M_* / M_☉)', # \astrosun
+    'mass':'\\log_{10} (M_* / M_☉)', # \astrosun
     'restframe_gz':'(g-z)'
 }
 
