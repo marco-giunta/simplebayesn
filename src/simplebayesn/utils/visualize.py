@@ -1117,7 +1117,7 @@ def plot_latent_bias(chain: GibbsChainData,
     5. The posterior mean residual magnitude offset
        ``delta_M = (m_app - mu - R_B*E) - (M0_int + alpha*x + beta_int*c_int)`` per SN.
  
-    For panels 2–5 the function also overlays a binned weighted-mean trend and,
+    For panels 2-5 the function also overlays a binned weighted-mean trend and,
     optionally, KDE marginals of the y-values in side panels. All four scatter
     panels share the same x-axis.
  
@@ -1188,7 +1188,7 @@ def plot_latent_bias(chain: GibbsChainData,
         Font size for the population legend. Default is 10.
     show_kde : bool, optional
         If ``True``, add a narrow KDE marginal side panel to the right of
-        panels 2–5. Default is ``True``.
+        panels 2-5. Default is ``True``.
     figsize : tuple, optional
         Figure size ``(width, height)`` in inches. Default is ``(10, 15)``.
  
@@ -1313,7 +1313,6 @@ def plot_latent_bias(chain: GibbsChainData,
 
     ax[0].hist(host_vec, density = True, bins = n_bins_hist,
                color = hist_color, edgecolor = hist_edge_color, linewidth = 0.5)
-    ax[0].set_ylabel(f'{xlabel} density')
 
     plot_points(ax[1], alpha_x, alpha_x_err)
     ax[1].set_ylabel('$\\alpha x$')
