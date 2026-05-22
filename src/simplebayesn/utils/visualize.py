@@ -499,8 +499,8 @@ def intrinsic_magnitude_color_distribution_animation(chain: GibbsChainData,
         line.set_data(xvals, yvals)
         line.set_color("C0" if b > 0 else "C3")
 
-        text.set_text(f"iter: {start_idx + step}\n" + "$\\beta_{\\rm int}$ = " + f"{b:+.3f}",
-                      color="C0" if b > 0 else "C3")
+        text.set_text(f"iter: {start_idx + step}\n" + "$\\beta_{\\rm int}$ = " + f"{b:+.3f}")
+        text.set_color("C0" if b > 0 else "C3")
         return scat, line, text
     anim = FuncAnimation(fig, update, frames=num_frames, init_func=init, blit=True, interval=150)
     if color_dust:
@@ -647,7 +647,8 @@ def extinguished_magnitude_color_distribution_animation(
         line.set_color("C0")
 
         # iteration label
-        text.set_text(f"iter: {start_idx + step}\n$R_B$ = {rB:.2f}", color="C0")
+        text.set_text(f"iter: {start_idx + step}\n$R_B$ = {rB:.2f}")
+        text.set_color("C0")
 
         return scat, line, text
 
