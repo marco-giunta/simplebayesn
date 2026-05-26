@@ -6,7 +6,7 @@ from argparse import ArgumentParser
 
 def ztf_gibbs(argv = None):
     parser = ArgumentParser(
-        description = 'Fit SimpleBayeSN Gibbs sampler on ZTF HQ VL data'
+        description = 'Fit SimpleBayeSN Gibbs sampler on ZTF HQ VL data with c<=0.3 color cuts'
     )
     parser.add_argument('-i', '--input', type = str, help = 'Path of ZTF .csv (input file)')
     parser.add_argument('-o', '--output', type = str, help = 'Path of GibbsData .h5 MCMC output file')
@@ -24,6 +24,7 @@ def ztf_gibbs(argv = None):
 
     os.makedirs(gd_ztf_h5_path.parent, exist_ok = True)
 
+    ztf = pd.read_csv(ztf_csv_path, index_col=[0])
     # SNe with z<=0.015 have NaNs in the x0 etc. SALT fit columns.
     # To discard them, it's equivalent to do .dropna(subset=['x0', 'x1', 'c', ...]) or filter by z>=0.015
     ztf = pd.read_csv(ztf_csv_path, index_col=[0])
@@ -35,15 +36,14 @@ def ztf_gibbs(argv = None):
             'norm/04gs', '91t', '99aa/91t'
         ]))
     ]
-    print(f'{len(ztf_hq_vl) = }')
-
     # convert to simplebayesn SaltData representation
-    sd_ztf = simplebayesn.preprocess_data(ztf_hq_vl)
+    sd_ztf = simplebayesn.preprocess_data(
+        ztf_hq_vl.loc[ztf_hq_vl.c <= 0.3]
+    )
     # uniform prior for slope/mean-like parameters, invgamma(0.003, 0.003) prior for positive variance-like parameters
     prior_params = simplebayesn.priors.gibbs.get_priors_params_uniform_invgamma()
     # initial conditions
-    iv = simplebayesn.initialize.sample_initial_values_uniform(num_samples = sd_ztf.num_samples, seed = 1234,
-                                                               allow_negative_beta_int = True)
+    iv = simplebayesn.initialize.sample_initial_values_uniform(num_samples = sd_ztf.num_samples, seed = 1234)
     # generate ZTF GibbsData object
     gd_ztf = simplebayesn.samplers.gibbs_sampler(iv, prior_params, sd_ztf, num_iter = int(1e5), seed = 1234)
 

@@ -44,8 +44,14 @@ def ztf_gibbs_latent_plot(argv = None):
     gd_ztf = load_gibbs_data(gd_ztf_h5_path)
 
     ztf = pd.read_csv(ztf_csv_path, index_col=[0])
-    ztf_hq_vl = ztf.loc[(ztf.fitquality_flag == 1) & (ztf.lccoverage_flag == 1) & (ztf.redshift <= 0.06)]
-    ztf_hq_vl = ztf_hq_vl.dropna()
+    ztf_hq_vl = ztf.loc[
+        (ztf['fitquality_flag'] == 1) & (ztf['lccoverage_flag'] == 1) & # high quality SNe
+        (ztf['redshift'] <= 0.06) & (ztf['redshift'] >= 0.015) & # volume limited & no missing SALT fit
+        (ztf['sub_type'].isin([ # nonpeculiar SNe
+            'norm', 'norm/99aa', '99aa',
+            'norm/04gs', '91t', '99aa/91t'
+        ]))
+    ]
     ztf_hq_vl['mB'] = 10.635-2.5*np.log10(ztf_hq_vl['x0'])
 
     globalhost = pd.read_csv(global_path)

@@ -13,6 +13,7 @@ FILL_ALPHA = 0.15
 ZTF_COLOR = 'C1'
 FND_COSMO_COLOR = 'C0'
 FND_NOCOSMO_COLOR = 'C2'
+C_MIN_PLOT, C_MAX_PLOT = -0.3, 0.9
 
 def ztf_foundation_mb_c(argv = None):
     parser = ArgumentParser(
@@ -45,14 +46,43 @@ def ztf_foundation_mb_c(argv = None):
     os.makedirs(fig_path, exist_ok = True)
 
     ztf = pd.read_csv(ztf_csv_path, index_col=[0])
-    ztf_hq_vl = ztf.loc[(ztf.fitquality_flag == 1) & (ztf.lccoverage_flag == 1) & (ztf.redshift <= 0.06)]
-    ztf_hq_vl = ztf_hq_vl.dropna()
+    ztf_hq_vl = ztf.loc[
+        (ztf['fitquality_flag'] == 1) & (ztf['lccoverage_flag'] == 1) & # high quality SNe
+        (ztf['redshift'] <= 0.06) & (ztf['redshift'] >= 0.015) & # volume limited & no missing SALT fit
+        (ztf['sub_type'].isin([ # nonpeculiar SNe
+            'norm', 'norm/99aa', '99aa',
+            'norm/04gs', '91t', '99aa/91t'
+        ]))
+    ]
     ztf_hq_vl['mB'] = 10.635-2.5*np.log10(ztf_hq_vl['x0'])
 
     fnd_cosmo = Table.read(fnd_fitres_path, format='ascii').to_pandas()
+    fnd_cosmo = fnd_cosmo.loc[
+        (fnd_cosmo['c'] >= -0.2) & (fnd_cosmo['c'] <= 0.8) &
+        (fnd_cosmo['x1'] >= -3) & (fnd_cosmo['x1'] <= 3)
+    ]
+
+    pec_ids = [
+        'ASASSN-15ga',
+        'ASASSN-15hy',
+        'ASASSN-16ci',
+        'ASASSN-16ex',
+        'MASTERJ2222',
+        'PS16amf',
+        'PSNJ1300323',
+        'PSNJ1628383',
+        'PSNJ2310226',
+        'SN2016ajf',
+        'SN2017lc',
+        'SN2017mu'
+    ]
 
     fnd_nocosmo = pd.read_csv(fnd_csv_path)
-    fnd_nocosmo = fnd_nocosmo.loc[fnd_nocosmo['sample'] == 'no_cosmo']
+    fnd_nocosmo = fnd_nocosmo.loc[
+        (fnd_nocosmo['sample'] == 'no_cosmo') & (~fnd_nocosmo['id'].isin(pec_ids)) &
+        (fnd_nocosmo['c'] >= -0.2) & (fnd_nocosmo['c'] <= 0.8) &
+        (fnd_nocosmo['x1'] >= -3) & (fnd_nocosmo['x1'] <= 3)
+    ]
     fnd_nocosmo['mB'] = 10.635-2.5*np.log10(fnd_nocosmo['x0'])
 
     fig, ax = plt.subplots(1, 1, figsize = (12, 7))
@@ -61,12 +91,9 @@ def ztf_foundation_mb_c(argv = None):
     ax.scatter(fnd_cosmo.c, fnd_cosmo.mB, alpha = 0.5, s = 20, label = f'Foundation (cosmo) ({len(fnd_cosmo)} SNe)', color = FND_COSMO_COLOR, edgecolors = 'k', linewidths = 0.5)
     ax.scatter(fnd_nocosmo.c, fnd_nocosmo.mB, alpha = 0.8, s = 30, label = f'Foundation (no cosmo) ({len(fnd_nocosmo)} SNe)', color = FND_NOCOSMO_COLOR, marker = 'x', linewidths = 1.5)
 
-    c_min_plot, c_max_plot = -0.4, 1.1
-    ax.set_xlim(c_min_plot, c_max_plot)
-    ax.axvline(0.3, color = 'gray', linestyle = '--', alpha = 0.5, label = '$c=\\pm 0.3$')
-    ax.axvline(-0.3, color = 'gray', linestyle = '--', alpha = 0.5)
-    ax.axvspan(0.3, c_max_plot, color = 'gray', alpha = 0.1, zorder = 0)
-    ax.axvspan(c_min_plot, -0.3, color = 'gray', alpha = 0.1, zorder = 0)
+    ax.set_xlim(C_MIN_PLOT, C_MAX_PLOT)
+    ax.axvline(0.3, color = 'gray', linestyle = '--', alpha = 0.5, label = '$\\hat c=0.3$')
+    ax.axvspan(0.3, C_MAX_PLOT, color = 'gray', alpha = 0.1, zorder = 0)
 
     ax.set_xlabel('$\\hat{c}$', fontsize = 15)
     ax.set_ylabel('$\\hat{m}_B$', fontsize = 15)
@@ -78,7 +105,7 @@ def ztf_foundation_mb_c(argv = None):
     ax_top = divider.append_axes('top', size = f'{PERCENT_SIZE}%', pad = 0.1, sharex = ax)
     ax_right = divider.append_axes('right', size = f'{PERCENT_SIZE}%', pad = 0.1, sharey = ax)
 
-    c_range = np.linspace(-0.3, 0.8, 200)
+    c_range = np.linspace(C_MIN_PLOT, C_MAX_PLOT, 200) #np.linspace(-0.3, 0.8, 200)
     kde_ztf_c = gaussian_kde(ztf_hq_vl.c)
     kde_fnd_cosmo_c = gaussian_kde(fnd_cosmo.c)
     kde_fnd_nocosmo_c = gaussian_kde(fnd_nocosmo.c)
@@ -91,10 +118,7 @@ def ztf_foundation_mb_c(argv = None):
     ax_top.fill_between(c_range, kde_fnd_cosmo_c(c_range), alpha = FILL_ALPHA, color = FND_COSMO_COLOR)
     ax_top.fill_between(c_range, kde_fnd_nocosmo_c(c_range), alpha = FILL_ALPHA, color = FND_NOCOSMO_COLOR)
     ax_top.axvline(0.3, color = 'gray', linestyle = '--', alpha = 0.5)
-    ax_top.axvline(-0.3, color = 'gray', linestyle = '--', alpha = 0.5)
-    ax_top.axvspan(0.3, c_max_plot, color = 'gray', alpha = 0.1, zorder = 0)
-    ax_top.axvspan(c_min_plot, -0.3, color = 'gray', alpha = 0.1, zorder = 0)
-    ax_top.set_ylabel('Density', fontsize = 12)
+    ax_top.axvspan(0.3, C_MAX_PLOT, color = 'gray', alpha = 0.1, zorder = 0)
     ax_top.tick_params(labelbottom = False)
     ax_top.legend(fontsize = 9, loc = 'upper right')
 
@@ -110,7 +134,6 @@ def ztf_foundation_mb_c(argv = None):
     ax_right.fill_betweenx(m_range, kde_ztf_m(m_range), alpha = FILL_ALPHA, color = ZTF_COLOR)
     ax_right.fill_betweenx(m_range, kde_fnd_cosmo_m(m_range), alpha = FILL_ALPHA, color = FND_COSMO_COLOR)
     ax_right.fill_betweenx(m_range, kde_fnd_nocosmo_m(m_range), alpha = FILL_ALPHA, color = FND_NOCOSMO_COLOR)
-    ax_right.set_xlabel('Density', fontsize = 12)
     ax_right.tick_params(labelleft = False)
     ax_right.invert_yaxis()
 

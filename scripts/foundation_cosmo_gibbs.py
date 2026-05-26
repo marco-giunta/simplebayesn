@@ -38,6 +38,8 @@ def foundation_cosmo_gibbs(argv = None):
         'COV_c_x0':  'cov_x0_c',
         'COV_x1_c':  'cov_x1_c'
     })
+    fnd_cosmo = fnd_cosmo.loc[fnd_cosmo['c'] >= -0.2]
+    print(f'number of SNe: {len(fnd_cosmo)}')
 
     sd_fnd_cosmo = simplebayesn.preprocess_data(fnd_cosmo)
 

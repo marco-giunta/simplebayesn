@@ -46,10 +46,14 @@ def ztf_gibbs_mass_split(argv = None):
     os.makedirs(output_path, exist_ok = True)
 
     ztf = pd.read_csv(ztf_csv_path, index_col=[0])
-    # high quality (flags == True) volume limited (z <= 0.06) subset
-    ztf_hq_vl = ztf.loc[(ztf.fitquality_flag == 1) & (ztf.lccoverage_flag == 1) & (ztf.redshift <= 0.06)]
-    # discard SNe with missing data (mostly classification)
-    ztf_hq_vl = ztf_hq_vl.dropna()
+    ztf_hq_vl = ztf.loc[
+        (ztf['fitquality_flag'] == 1) & (ztf['lccoverage_flag'] == 1) & # high quality SNe
+        (ztf['redshift'] <= 0.06) & (ztf['redshift'] >= 0.015) & # volume limited & no missing SALT fit
+        (ztf['sub_type'].isin([ # nonpeculiar SNe
+            'norm', 'norm/99aa', '99aa',
+            'norm/04gs', '91t', '99aa/91t'
+        ]))
+    ]
 
     globalhost = pd.read_csv(ztf_global_csv_path)
     globalhost = globalhost.loc[globalhost.ztfname.isin(ztf_hq_vl.ztfname)]
