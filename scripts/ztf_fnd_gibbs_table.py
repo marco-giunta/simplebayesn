@@ -5,6 +5,24 @@ from argparse import ArgumentParser
 import numpy as np
 import pandas as pd
 
+PARAMS_LATEX_MAP = {
+    'M0_int': r'$M_0^{\rm{int}}$',
+    'alpha': r'$\alpha$',
+    'beta_int': r'$\beta_{\rm{int}}$',
+    'c0_int': r'$c_0^{\rm{int}}$',
+    'alphac_int': r'$\alpha_c^{\rm{int}}$',
+    'x0': r'$x_0$',
+    'sigma_int2': r'$\sigma_{\rm{int}}^2$',
+    'sigmac_int2': r'$\sigma_{c, \rm{int}}^2$',
+    'sigmax2': r'$\sigma_x^2$',
+    'RB': r'$R_B$',
+    'tau': r'$\tau$',
+    'sigma_int': r'$\sigma_{\rm{int}}$',
+    'sigmac_int': r'$\sigma_{c, \rm{int}}$',
+    'sigmax': r'$\sigma_x$',
+}
+DECIMALS = 3
+
 def ztf_fnd_gibbs_table(argv = None):
     parser = ArgumentParser(
         description = 'Compute tables of mean +- std estimates of all parameters from posterior chains for ZTF and Foundation'
@@ -51,6 +69,23 @@ def ztf_fnd_gibbs_table(argv = None):
         print(label, '\n', df)
 
         df.to_csv(tables_base_path / Path(f'{label}_posterior_estimates.csv'))
+
+        df['var_latex'] = df.index.map(PARAMS_LATEX_MAP)
+        df['value'] = df.apply(
+            lambda row: f"${row['mean']:.{DECIMALS}f} \\pm {row['std']:.{DECIMALS}f}$",
+            axis=1
+        )
+
+        latex_table = df[['var_latex', 'value']].to_latex(
+            index=False,
+            header=False,
+            escape=False
+        )
+
+        print(latex_table)
+        with open(tables_base_path / Path(f'{label}_latex_table.txt'), 'w') as f:
+            f.write(latex_table)
+
 
 if __name__ == '__main__':
     ztf_fnd_gibbs_table()
