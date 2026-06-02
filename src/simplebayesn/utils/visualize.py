@@ -7,6 +7,7 @@ from matplotlib.animation import FuncAnimation
 from matplotlib.colors import TABLEAU_COLORS as tab_colors
 from matplotlib.patches import Patch
 from scipy.stats import gaussian_kde
+from scipy import stats
 
 PARAMS_LATEX_MAP = {
     'M0_int': r'$M_0^{\text{int}}$',
@@ -1561,3 +1562,202 @@ def extinguished_magnitude_color_distribution_mean(
     ax.tick_params(axis='both', labelsize=ticks_fontsize)
     plt.tight_layout()
     return fig, ax
+
+def extinguished_magnitude_color_distribution_mean_hist(
+    chain: GibbsChainData,
+    start_idx: int = 0,
+    stop_idx: int = None,
+    title: str = None,
+    color_dust: bool = True,
+    verbose: bool = False,
+    labels_fontsize=12,
+    title_fontsize=14,
+    ticks_fontsize=11,
+    text_fontsize=11,
+    elinewidth=0.85,
+    alpha=0.45,
+    capsize=0,
+    figsize=(6, 7),
+    hist_bins=20,
+    hist_height_ratio=0.4,
+):
+    """
+    Plot the posterior-mean extinguished SN population in colour-magnitude space,
+    with a companion histogram of the apparent colour distribution.
+
+    The upper panel shows a histogram of the per-SN posterior-mean apparent
+    colour, overlaid with the two model components: the intrinsic colour
+    Gaussian N(c0_int + alphac_int * <x>, sigmac_int) and the dust exponential
+    Exp(tau). Both curves are rescaled to match the histogram peak rather than
+    integrating to unity. The lower panel shows the per-SN posterior-mean
+    apparent colour versus stretch-corrected extinguished magnitude, with error
+    bars from the posterior standard deviation and a slope line (with 1-sigma
+    shading) whose slope equals the posterior-mean R_B.
+
+    Parameters
+    ----------
+    chain : GibbsChainData
+        MCMC chain containing both global and latent parameter arrays.
+    start_idx : int, optional
+        First iteration to include. Default is 0.
+    stop_idx : int or None, optional
+        Last iteration (exclusive). None uses the full chain.
+    title : str or None, optional
+        Axes title placed on the upper panel. If None and verbose=True, a
+        descriptive title is used; otherwise no title.
+    color_dust : bool, optional
+        If True, colour-code scatter points by per-SN posterior-mean dust
+        reddening E and add a colorbar. Default is True.
+    verbose : bool, optional
+        If True, use descriptive axis labels and an auto-generated title.
+        Default is False.
+    labels_fontsize : int, optional
+        Font size for axis labels and colorbar label. Default is 12.
+    title_fontsize : int, optional
+        Font size for the axes title. Default is 14.
+    ticks_fontsize : int, optional
+        Font size for tick labels. Default is 11.
+    text_fontsize : int, optional
+        Font size for the in-plot R_B annotation and legend. Default is 11.
+    elinewidth : float, optional
+        Line width for the error bars. Default is 0.85.
+    alpha : float, optional
+        Transparency for the error bars. Default is 0.45.
+    capsize : int, optional
+        Cap size for error bars. Default is 0 (no caps).
+    figsize : tuple, optional
+        Figure size (width, height) in inches. Default is (6, 7).
+    hist_bins : int, optional
+        Number of bins for the apparent colour histogram. Default is 20.
+    hist_height_ratio : float, optional
+        Fraction of the total figure height allocated to the histogram panel.
+        Default is 0.4.
+
+    Returns
+    -------
+    fig : matplotlib.figure.Figure
+    axes : tuple of (ax_hist, ax_scatter)
+        ax_hist is the upper histogram panel, ax_scatter the lower
+        colour-magnitude panel. The two axes share the x-axis.
+    """
+    params = chain[start_idx:stop_idx]
+
+    c_app    = params['c_app']
+    M_ext_ax = params['m_app'] - params['dist_mod'] - params['alpha'][:, np.newaxis] * params['x']
+    RB       = params['RB']
+
+    # ── Posterior means / stds over iterations ──────────────────────────────
+    c_mean = c_app.mean(axis=0)
+    c_std  = c_app.std(axis=0)
+    M_mean = M_ext_ax.mean(axis=0)
+    M_std  = M_ext_ax.std(axis=0)
+    E_mean = params['E'].mean(axis=0)
+
+    rB_mean = RB.mean()
+    rB_std  = RB.std()
+
+    # ── Intrinsic colour Gaussian: c_int ~ N(c0_int + alphac_int * x, sigmac_int2) ──
+    c_int_loc_samples = params['c0_int'] + params['alphac_int'] * params['x'].mean(axis=1)
+    mu_c_int  = c_int_loc_samples.mean()
+    std_c_int = c_int_loc_samples.std()
+
+    sigmac_int_samples = np.sqrt(params['sigmac_int2'])
+    mu_sigmac  = sigmac_int_samples.mean()
+    std_sigmac = sigmac_int_samples.std()
+
+    # ── Dust exponential: E ~ Exp(tau) ──────────────────────────────────────
+    mu_tau  = params['tau'].mean()
+    std_tau = params['tau'].std()
+
+    # ── Plot limits (computed once, used by both panels) ────────────────────
+    c_min, c_max = c_mean.min(), c_mean.max()
+    M_min, M_max = M_mean.min(), M_mean.max()
+    pad_c = 0.02 * (c_max - c_min) if c_max != c_min else 0.01
+    pad_M = 0.02 * (M_max - M_min) if M_max != M_min else 0.1
+    x_lo, x_hi = c_min - pad_c, c_max + pad_c
+
+    # ── Layout ───────────────────────────────────────────────────────────────
+    fig = plt.figure(figsize=figsize, layout='constrained')
+    gs  = fig.add_gridspec(2, 1, height_ratios=[hist_height_ratio, 1.0 - hist_height_ratio], hspace=0.08)
+    ax_hist    = fig.add_subplot(gs[0])
+    ax_scatter = fig.add_subplot(gs[1], sharex=ax_hist)
+
+    # ── Upper panel: histogram ───────────────────────────────────────────────
+    counts, _ = np.histogram(c_mean, bins=hist_bins, density=True)
+    hist_peak = counts.max()
+
+    ax_hist.hist(c_mean, bins=hist_bins, density=True, color='C0', alpha=0.45,
+                 label='$c_s^{\\rm app}$')
+
+    # Set xlim after hist() so it overrides matplotlib's auto bin-range;
+    # sharex propagates this to ax_scatter automatically.
+    ax_hist.set_xlim(x_lo, x_hi)
+
+    xs = np.linspace(x_lo, x_hi, 300)
+
+    # Intrinsic Gaussian, scaled to histogram peak
+    ys_gauss = stats.norm.pdf(xs, loc=mu_c_int, scale=mu_sigmac)
+    ys_gauss_scaled = ys_gauss * (hist_peak / ys_gauss.max())
+    ax_hist.plot(xs, ys_gauss_scaled, color='C2', lw=2,
+                 label=f'$\\mathcal{{N}}({mu_c_int:.3f},\\ {mu_sigmac:.3f}^2)$')
+    ax_hist.fill_between(xs, ys_gauss_scaled, alpha=0.15, color='C2')
+
+    # Dust exponential, scaled to histogram peak
+    ys_exp = stats.expon.pdf(xs, loc=0, scale=mu_tau)
+    ys_exp_scaled = ys_exp * (hist_peak / ys_exp.max())
+    ax_hist.plot(xs, ys_exp_scaled, color='C1', lw=2,
+                 label=f'$P_{{\\rm exp}}({mu_tau:.3f})$')
+    ax_hist.fill_between(xs, ys_exp_scaled, alpha=0.15, color='C1')
+
+    ax_hist.tick_params(axis='both', labelsize=ticks_fontsize)
+    ax_hist.tick_params(axis='x', labelbottom=False)
+    ax_hist.tick_params(axis='y', labelleft=False)
+    ax_hist.legend(fontsize=text_fontsize - 1, framealpha=0.6)
+
+    if title is None and verbose:
+        ax_hist.set_title('Extinguished population (posterior mean $\\pm$ std)', fontsize=title_fontsize)
+    elif title is not None:
+        ax_hist.set_title(title, fontsize=title_fontsize)
+
+    # ── Lower panel: colour–magnitude scatter ────────────────────────────────
+    if color_dust:
+        norm = plt.Normalize(vmin=E_mean.min(), vmax=E_mean.max())
+        cmap = plt.cm.inferno
+        ax_scatter.scatter(c_mean, M_mean, s=10, alpha=0.6, c=E_mean, cmap=cmap, norm=norm, zorder=2)
+        ax_scatter.errorbar(c_mean, M_mean, xerr=c_std, yerr=M_std,
+                            fmt='none', ecolor='gray', elinewidth=elinewidth,
+                            alpha=alpha, zorder=1, capsize=capsize)
+        sm   = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
+        cbar = fig.colorbar(sm, ax=ax_scatter)
+        cbar.set_label('$\\langle E \\rangle$ (dust reddening)' if verbose else '$\\langle E \\rangle$',
+                       fontsize=labels_fontsize)
+        cbar.ax.tick_params(labelsize=ticks_fontsize)
+    else:
+        ax_scatter.scatter(c_mean, M_mean, s=10, alpha=0.6, color='k', zorder=2)
+        ax_scatter.errorbar(c_mean, M_mean, xerr=c_std, yerr=M_std,
+                            fmt='none', ecolor='gray', elinewidth=elinewidth,
+                            alpha=alpha, zorder=1, capsize=capsize)
+
+    # Slope line centred at medians
+    xvals    = np.linspace(x_lo, x_hi, 200)
+    m0, c0   = np.median(M_mean), np.median(c_mean)
+    y_center = m0 + rB_mean * (xvals - c0)
+    y_upper  = m0 + (rB_mean + rB_std) * (xvals - c0)
+    y_lower  = m0 + (rB_mean - rB_std) * (xvals - c0)
+
+    ax_scatter.plot(xvals, y_center, lw=2, color='C0')
+    ax_scatter.fill_between(xvals, y_lower, y_upper, color='C0', alpha=0.25)
+
+    ax_scatter.set_ylim(M_max + pad_M, M_min - pad_M)
+    ax_scatter.set_xlabel(
+        'Posterior mean apparent color $c_s^{\\rm app}$' if verbose else '$c_s^{\\rm app}$',
+        fontsize=labels_fontsize)
+    ax_scatter.set_ylabel(
+        'Posterior mean $M_s^{\\rm ext} - \\alpha x_s$' if verbose else '$M_s^{\\rm ext} - \\alpha x_s$',
+        fontsize=labels_fontsize)
+    ax_scatter.text(0.65, 0.98, f'$R_B$ = {rB_mean:.2f} $\\pm$ {rB_std:.2f}',
+                    transform=ax_scatter.transAxes, va='top', ha='left',
+                    fontsize=text_fontsize, color='C0')
+    ax_scatter.tick_params(axis='both', labelsize=ticks_fontsize)
+
+    return fig, (ax_hist, ax_scatter)
