@@ -506,7 +506,7 @@ def intrinsic_magnitude_color_distribution_animation(chain: GibbsChainData,
     if color_dust:
         sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
         cbar = fig.colorbar(sm, ax=ax)
-        cbar.set_label(label='$E$ (dust reddening)' if verbose else '$E$',
+        cbar.set_label(label='$\\langle E \\rangle$ (dust reddening)' if verbose else '$\\langle E \\rangle$',
                        fontsize = labels_fontsize)
         cbar.ax.tick_params(labelsize = ticks_fontsize)
 
@@ -657,7 +657,7 @@ def extinguished_magnitude_color_distribution_animation(
     if color_dust:
         sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
         cbar = fig.colorbar(sm, ax=ax)
-        cbar.set_label(label='$E$ (dust reddening)' if verbose else '$E$',
+        cbar.set_label(label='$\\langle E \\rangle$ (dust reddening)' if verbose else '$\\langle E \\rangle$',
                        fontsize = labels_fontsize)
         cbar.ax.tick_params(labelsize = ticks_fontsize)
 
@@ -901,7 +901,7 @@ def intrinsic_magnitude_color_distribution_frame(
         )
         sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
         cbar = fig.colorbar(sm, ax=ax)
-        cbar.set_label(label='$E$ (dust reddening)' if verbose else '$E$',
+        cbar.set_label(label='$\\langle E \\rangle$ (dust reddening)' if verbose else '$\\langle E \\rangle$',
                        fontsize = labels_fontsize)
         cbar.ax.tick_params(labelsize = ticks_fontsize)
     else:
@@ -1048,7 +1048,7 @@ def extinguished_magnitude_color_distribution_frame(
                           c=params['E'][iteration], cmap=cmap, norm=norm)
         sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
         cbar = fig.colorbar(sm, ax=ax)
-        cbar.set_label(label='$E$ (dust reddening)' if verbose else '$E$',
+        cbar.set_label(label='$\\langle E \\rangle$ (dust reddening)' if verbose else '$\\langle E \\rangle$',
                        fontsize = labels_fontsize)
         cbar.ax.tick_params(labelsize = ticks_fontsize)
     else:
@@ -1506,7 +1506,7 @@ def extinguished_magnitude_color_distribution_mean(
         sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
         cbar = fig.colorbar(sm, ax=ax)
         cbar.set_label(
-            label='$E$ (dust reddening)' if verbose else '$E$',
+            label='$\\langle E \\rangle$ (dust reddening)' if verbose else '$\\langle E \\rangle$',
             fontsize=labels_fontsize
         )
         cbar.ax.tick_params(labelsize=ticks_fontsize)
@@ -1536,11 +1536,11 @@ def extinguished_magnitude_color_distribution_mean(
     ax.set_ylim(M_max + pad_M, M_min - pad_M)  # reversed y-axis
 
     ax.set_xlabel(
-        "Posterior mean apparent color $\\langle c_s^{\\rm app} \\rangle$" if verbose else '$\\langle c_s^{\\rm app} \\rangle$',
+        "Posterior mean apparent color $c_s^{\\rm app}$" if verbose else '$c_s^{\\rm app}$',
         fontsize=labels_fontsize
     )
     ax.set_ylabel(
-        "Posterior mean $\\langle M_s^{\\rm ext} - \\alpha x_s \\rangle$" if verbose else '$\\langle M_s^{\\rm ext} - \\alpha x_s \\rangle$',
+        "Posterior mean $M_s^{\\rm ext} - \\alpha x_s$" if verbose else '$M_s^{\\rm ext} - \\alpha x_s$',
         fontsize=labels_fontsize
     )
 
