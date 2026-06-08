@@ -1,6 +1,6 @@
 # simplebayesn
 
-A Python implementation of the **Simple-BayeSN** Bayesian hierarchical model for type Ia supernova population inference, as introduced in [Mandel et al. (2017)](https://doi.org/10.3847/1538-4357/aa6038) and extended in Giunta, Karchev & Trotta (2026).
+A Python implementation of the **Simple-BayeSN** Bayesian hierarchical model for type Ia supernova population inference, as introduced in [Mandel et al. (2017)](https://doi.org/10.3847/1538-4357/aa6038) and extended in [Giunta, Karchev & Trotta (2026)](https://arxiv.org/abs/2606.06593).
 
 The model decomposes the observed SN Ia colour-magnitude correlation into an intrinsic Gaussian component and an extrinsic exponential dust component, inferring population-level parameters from SALT2 light-curve summaries via Gibbs and emcee samplers.
 
@@ -157,6 +157,8 @@ simplebayesn/
 If you use this code, please cite:
 
 > Giunta, Karchev & Trotta (2026), *The colour variability of low-z SNe Ia is entirely explained by dust*
+>
+> [![arXiv](https://img.shields.io/badge/arXiv-2606.06593-b31b1b.svg)](https://arxiv.org/abs/2606.06593)
 
 and the original Simple-BayeSN paper:
 
