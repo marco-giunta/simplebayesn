@@ -2,12 +2,15 @@ import numpy as np
 import matplotlib.pyplot as plt
 from corner import corner
 import seaborn as sns
-from ..utils.data import GibbsChainData
+from ..utils.data import GibbsChainData, EmceeChainData
 from matplotlib.animation import FuncAnimation
 from matplotlib.colors import TABLEAU_COLORS as tab_colors
 from matplotlib.patches import Patch
 from scipy.stats import gaussian_kde
 from scipy import stats
+
+# Type alias used in signatures and docstrings
+ChainData = GibbsChainData | EmceeChainData
 
 PARAMS_LATEX_MAP = {
     'M0_int': r'$M_0^{\text{int}}$',
@@ -32,7 +35,7 @@ Covers all global hyperparameters and their derived standard-deviation forms
 (e.g. ``'sigmax'`` for ``sqrt(sigmax2)``).
 """
 
-def posterior_cornerplot(chain: GibbsChainData,
+def posterior_cornerplot(chain: ChainData,
                          start_idx: int = 0, stop_idx: int = None,
                          title: str = None, levels = (0.393, 0.864),
                          show_joint_mean: bool = False,
@@ -54,7 +57,7 @@ def posterior_cornerplot(chain: GibbsChainData,
  
     Parameters
     ----------
-    chain : GibbsChainData
+    chain : GibbsChainData or EmceeChainData
         MCMC chain from which to draw samples. Any parameter accessible via
         ``chain[param_name]`` (i.e. in ``global_params_names`` or derived
         quantities such as ``'sigmax'``, ``'sigmac_int'``, ``'sigma_int'``)
@@ -173,19 +176,19 @@ def posterior_cornerplot(chain: GibbsChainData,
     for i in range(ndim):
         ax = axes[i, i]
         if show_marginal_mean:
-            ax.axvline(means[i], color=mean_color, lw=2)            # Truth line
+            ax.axvline(means[i], color=mean_color, lw=2)
         if show_marginal_std:
-            ax.axvline(means[i] - stds[i], color=std_color, lw=1.5, ls="--")   # 1 sigma lower
-            ax.axvline(means[i] + stds[i], color=std_color, lw=1.5, ls="--")   # 1 sigma upper
-            ax.axvline(means[i] - 2*stds[i], color=std_color, lw=1.5, ls=":")  # 2 sigma lower
-            ax.axvline(means[i] + 2*stds[i], color=std_color, lw=1.5, ls=":")  # 2 sigma upper
+            ax.axvline(means[i] - stds[i], color=std_color, lw=1.5, ls="--")
+            ax.axvline(means[i] + stds[i], color=std_color, lw=1.5, ls="--")
+            ax.axvline(means[i] - 2*stds[i], color=std_color, lw=1.5, ls=":")
+            ax.axvline(means[i] + 2*stds[i], color=std_color, lw=1.5, ls=":")
 
     if title is not None:
         fig.suptitle(title, fontsize = title_fontsize)
 
     return fig
 
-def trace_plot(chain: GibbsChainData, param: str,
+def trace_plot(chain: ChainData, param: str,
                start_idx: int = 0, stop_idx: int = None, title: str = None,
                show_mean: bool = True, show_std: bool = True,
                figsize = None, show_legend: bool = True,
@@ -201,7 +204,7 @@ def trace_plot(chain: GibbsChainData, param: str,
  
     Parameters
     ----------
-    chain : GibbsChainData
+    chain : GibbsChainData or EmceeChainData
         MCMC chain containing the parameter to plot.
     param : str
         Name of the parameter to trace. Must be accessible as an attribute of
@@ -270,7 +273,7 @@ def trace_plot(chain: GibbsChainData, param: str,
 
     return ax
 
-def marginal_posterior(chain: GibbsChainData, param: str,
+def marginal_posterior(chain: ChainData, param: str,
                        start_idx: int = 0, stop_idx: int = None,
                        title: str = None,
                        kind: str = 'kde',
@@ -289,7 +292,7 @@ def marginal_posterior(chain: GibbsChainData, param: str,
  
     Parameters
     ----------
-    chain : GibbsChainData
+    chain : GibbsChainData or EmceeChainData
         MCMC chain containing the parameter to plot.
     param : str
         Name of the parameter to plot. Must be accessible as an attribute of
@@ -303,7 +306,7 @@ def marginal_posterior(chain: GibbsChainData, param: str,
     kind : str, optional
         Plot style: ``'kde'`` for a kernel density estimate (via
         ``seaborn.kdeplot``) or ``'hist'`` for a density-normalised histogram
-        (via ``seaborn.histplot``). Default is ``'kde'``.
+        (via ``seaborn.histplot``). Default is ``'kde'``.\
     show_mean : bool, optional
         If ``True``, draw a vertical red line at the posterior mean.
         Default is ``True``.
@@ -374,6 +377,145 @@ def marginal_posterior(chain: GibbsChainData, param: str,
         ax.legend(fontsize = legend_fontsize)
 
     return ax
+
+def compare_posterior_cornerplots(chains: list[ChainData],
+                                  start_idx: int = 0, stop_idx: int = None,
+                                  title: str = None, levels = (0.393, 0.864),
+                                  labels: list[str] = None,
+                                  show_joint_mean: bool = False,
+                                  truth_dict: dict = None, truth_label: str = 'True values',
+                                  contours_colors: list[str] = None, mean_colors: list[str] = None,
+                                  truth_color: str = 'black',
+                                  axes_labels_fontsize = 25,
+                                  ticks_labels_fontsize = 16, title_fontsize = 25,
+                                  legend_fontsize: int = 20, show_sn_num: bool = True,
+                                  params_to_plot: list = None,
+                                  *args, **kwargs):
+    """
+    Overlay corner plots from multiple MCMC chains on a single figure.
+ 
+    Iteratively calls :func:`posterior_cornerplot` for each chain in
+    ``chains``, drawing them onto the same figure using distinct colours.
+    Optionally adds a legend identifying each chain by a user-supplied label
+    (and, if ``show_sn_num=True``, the number of supernovae in each chain).
+ 
+    Parameters
+    ----------
+    chains : list of GibbsChainData or EmceeChainData
+        MCMC chains to compare. Each may be a ``GibbsChainData`` or an
+        ``EmceeChainData`` object, and the list may mix both types.
+    start_idx : int, optional
+        First iteration to include for all chains. Default is 0.
+    stop_idx : int or None, optional
+        Last iteration (exclusive) for all chains. ``None`` uses the full chain.
+    title : str or None, optional
+        Overall figure title. Default is ``None``.
+    levels : tuple of float, optional
+        Contour probability levels, forwarded to :func:`posterior_cornerplot`.
+        Default is ``(0.393, 0.864)``.
+    labels : list of str or None, optional
+        Human-readable label for each chain, used in the figure legend.
+        Must have the same length as ``chains`` if provided. Default is
+        ``None`` (no legend).
+    show_joint_mean : bool, optional
+        Whether to show the posterior mean cross-hair in off-diagonal panels.
+        Default is ``True``.
+    truth_dict : dict or None, optional
+        Ground-truth parameter values shown as a cross-hair on all chains.
+        Default is ``None``.
+    truth_label: str or None, optional
+        How truth_dict will show up in the legend. This requires truth_dict
+        to not be None.
+        Default is ``"True values"``.
+    contours_colors : list of str or None, optional
+        Contour colours for each chain. If ``None``, the first
+        ``len(chains)`` Tableau colours are used. Must match
+        ``len(chains)`` if provided.
+    mean_colors : list of str or None, optional
+        Mean-indicator colours for each chain. If ``None``, defaults to
+        ``contours_colors``. Must match ``len(chains)`` if provided.
+    truth_color : str, optional
+        Colour for the truth cross-hair. Default is ``'black'``.
+    axes_labels_fontsize : int, optional
+        Font size for axis labels. Default is 25.
+    ticks_labels_fontsize : int, optional
+        Font size for tick labels. Default is 16.
+    title_fontsize : int, optional
+        Font size for the figure title. Default is 25.
+    legend_fontsize : int, optional
+        Font size for the legend. Default is 20.
+    show_sn_num : bool, optional
+        If ``True``, append the number of supernovae (from
+        ``chain.num_data_samples``) to each legend label. Default is ``True``.
+    params_to_plot : list of str or None, optional
+        Parameters to include in the corner plot. Forwarded to
+        :func:`posterior_cornerplot`. Default is ``None`` (uses that
+        function's default list).
+    *args, **kwargs
+        Additional arguments forwarded to :func:`posterior_cornerplot`.
+ 
+    Returns
+    -------
+    matplotlib.figure.Figure
+        The figure containing all overlaid corner plots.
+ 
+    Raises
+    ------
+    ValueError
+        If ``contours_colors`` or ``mean_colors`` is provided but its length
+        does not match ``len(chains)``.
+    """
+    if contours_colors is not None and len(contours_colors) != len(chains):
+        raise ValueError(f'{len(chains) = } but {len(contours_colors) = }')
+    if mean_colors is not None and len(mean_colors) != len(chains):
+        raise ValueError(f'{len(chains) = } but {len(mean_colors) = }')
+
+    if contours_colors is None:
+        contours_colors = list(tab_colors.keys())[:len(chains)]
+    if mean_colors is None:
+        mean_colors = contours_colors
+
+    shared_args = dict(start_idx = start_idx, stop_idx = stop_idx, title = title,
+                       truth_dict = truth_dict, truth_color = truth_color,
+                       levels = levels, show_joint_mean = show_joint_mean, show_marginal_mean = False,
+                       show_marginal_std = False, show_titles = False,
+                       axes_labels_fontsize = axes_labels_fontsize,
+                       ticks_labels_fontsize = ticks_labels_fontsize, title_fontsize = title_fontsize,
+                       params_to_plot = params_to_plot)
+    
+    fig = posterior_cornerplot(chains[0], contours_color = contours_colors[0],
+                               mean_color = mean_colors[0],
+                               *args, **kwargs, **shared_args)
+
+    for i in range(1, len(chains)):
+        posterior_cornerplot(chains[i], contours_color = contours_colors[i],
+                             mean_color = mean_colors[i],
+                             *args, **kwargs, **shared_args, fig = fig)
+
+    if labels is not None:
+        if show_sn_num:
+            labels = [l + f' ({c.num_data_samples} SNe)' for c, l in zip(chains, labels)]
+        legend_handles = [
+            Patch(facecolor=contours_colors[i], label=labels[i])
+            for i in range(len(chains))
+        ]
+        if truth_dict is not None and truth_label is not None:
+            legend_handles += [Patch(
+                facecolor=truth_color,
+                label=truth_label
+            )]
+        ndim = len(params_to_plot) if params_to_plot is not None else 11
+        axes = np.array(fig.axes).reshape((ndim, ndim))
+        legend_ax = axes[0, -1]
+        legend_ax.legend(
+            handles=legend_handles,
+            fontsize=legend_fontsize,
+            loc='upper right',
+            frameon=True,
+            framealpha=0.8,
+        )
+
+    return fig
 
 def intrinsic_magnitude_color_distribution_animation(chain: GibbsChainData,
                                                      start_idx: int = 0, stop_idx: int = None,
@@ -666,145 +808,6 @@ def extinguished_magnitude_color_distribution_animation(
 
     plt.tight_layout()
     return anim, fig
-
-def compare_posterior_cornerplots(chains: list[GibbsChainData],
-                                  start_idx: int = 0, stop_idx: int = None,
-                                  title: str = None, levels = (0.393, 0.864),
-                                  labels: list[str] = None,
-                                  show_joint_mean: bool = False,
-                                  truth_dict: dict = None, truth_label: str = 'True values',
-                                  contours_colors: list[str] = None, mean_colors: list[str] = None,
-                                  truth_color: str = 'black',
-                                  axes_labels_fontsize = 25,
-                                  ticks_labels_fontsize = 16, title_fontsize = 25,
-                                  legend_fontsize: int = 20, show_sn_num: bool = True,
-                                  params_to_plot: list = None,
-                                  *args, **kwargs):
-    """
-    Overlay corner plots from multiple MCMC chains on a single figure.
- 
-    Iteratively calls :func:`posterior_cornerplot` for each chain in
-    ``chains``, drawing them onto the same figure using distinct colours.
-    Optionally adds a legend identifying each chain by a user-supplied label
-    (and, if ``show_sn_num=True``, the number of supernovae in each chain).
- 
-    Parameters
-    ----------
-    chains : list of GibbsChainData
-        MCMC chains to compare. Each must be a populated ``GibbsChainData``
-        object.
-    start_idx : int, optional
-        First iteration to include for all chains. Default is 0.
-    stop_idx : int or None, optional
-        Last iteration (exclusive) for all chains. ``None`` uses the full chain.
-    title : str or None, optional
-        Overall figure title. Default is ``None``.
-    levels : tuple of float, optional
-        Contour probability levels, forwarded to :func:`posterior_cornerplot`.
-        Default is ``(0.393, 0.864)``.
-    labels : list of str or None, optional
-        Human-readable label for each chain, used in the figure legend.
-        Must have the same length as ``chains`` if provided. Default is
-        ``None`` (no legend).
-    show_joint_mean : bool, optional
-        Whether to show the posterior mean cross-hair in off-diagonal panels.
-        Default is ``True``.
-    truth_dict : dict or None, optional
-        Ground-truth parameter values shown as a cross-hair on all chains.
-        Default is ``None``.
-    truth_label: str or None, optional
-        How truth_dict will show up in the legend. This requires truth_dict
-        to not be None.
-        Default is ``"True values"``.
-    contours_colors : list of str or None, optional
-        Contour colours for each chain. If ``None``, the first
-        ``len(chains)`` Tableau colours are used. Must match
-        ``len(chains)`` if provided.
-    mean_colors : list of str or None, optional
-        Mean-indicator colours for each chain. If ``None``, defaults to
-        ``contours_colors``. Must match ``len(chains)`` if provided.
-    truth_color : str, optional
-        Colour for the truth cross-hair. Default is ``'black'``.
-    axes_labels_fontsize : int, optional
-        Font size for axis labels. Default is 25.
-    ticks_labels_fontsize : int, optional
-        Font size for tick labels. Default is 16.
-    title_fontsize : int, optional
-        Font size for the figure title. Default is 25.
-    legend_fontsize : int, optional
-        Font size for the legend. Default is 20.
-    show_sn_num : bool, optional
-        If ``True``, append the number of supernovae (from
-        ``chain.num_data_samples``) to each legend label. Default is ``True``.
-    params_to_plot : list of str or None, optional
-        Parameters to include in the corner plot. Forwarded to
-        :func:`posterior_cornerplot`. Default is ``None`` (uses that
-        function's default list).
-    *args, **kwargs
-        Additional arguments forwarded to :func:`posterior_cornerplot`.
- 
-    Returns
-    -------
-    matplotlib.figure.Figure
-        The figure containing all overlaid corner plots.
- 
-    Raises
-    ------
-    ValueError
-        If ``contours_colors`` or ``mean_colors`` is provided but its length
-        does not match ``len(chains)``.
-    """
-    if contours_colors is not None and len(contours_colors) != len(chains):
-        raise ValueError(f'{len(chains) = } but {len(contours_colors) = }')
-    if mean_colors is not None and len(mean_colors) != len(chains):
-        raise ValueError(f'{len(chains) = } but {len(mean_colors) = }')
-
-    if contours_colors is None:
-        contours_colors = list(tab_colors.keys())[:len(chains)]
-    if mean_colors is None:
-        mean_colors = contours_colors
-
-    shared_args = dict(start_idx = start_idx, stop_idx = stop_idx, title = title,
-                       truth_dict = truth_dict, truth_color = truth_color,
-                       levels = levels, show_joint_mean = show_joint_mean, show_marginal_mean = False,
-                       show_marginal_std = False, show_titles = False, 
-                       axes_labels_fontsize = axes_labels_fontsize,
-                       ticks_labels_fontsize = ticks_labels_fontsize, title_fontsize = title_fontsize,
-                       params_to_plot = params_to_plot)
-    
-    fig = posterior_cornerplot(chains[0], contours_color = contours_colors[0],
-                               mean_color = mean_colors[0],
-                               *args, **kwargs, **shared_args)
-
-    for i in range(1, len(chains)):
-        posterior_cornerplot(chains[i], contours_color = contours_colors[i],
-                             mean_color = mean_colors[i],
-                             *args, **kwargs, **shared_args, fig = fig)
-
-    if labels is not None:
-        if show_sn_num:
-            labels = [l + f' ({c.num_data_samples} SNe)' for c, l in zip(chains, labels)]
-        legend_handles = [
-            Patch(facecolor=contours_colors[i], label=labels[i])
-            for i in range(len(chains))
-        ]
-        if truth_dict is not None and truth_label is not None:
-            legend_handles += [Patch(
-                facecolor=truth_color,
-                label=truth_label
-            )]
-        ndim = len(params_to_plot) if params_to_plot is not None else 11
-        axes = np.array(fig.axes).reshape((ndim, ndim))
-        legend_ax = axes[0, -1]
-        legend_ax.legend(
-            handles=legend_handles,
-            fontsize=legend_fontsize,
-            loc='upper right',
-            frameon=True,
-            framealpha=0.8,
-        )
-
-    return fig
 
 def intrinsic_magnitude_color_distribution_frame(
     chain: GibbsChainData,

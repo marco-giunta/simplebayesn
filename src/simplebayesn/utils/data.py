@@ -273,28 +273,17 @@ class GibbsChainData:
     def sigma_int(self):
         return np.sqrt(self.sigma_int2)
 
-    def load(self, path: str | Path, marginal: bool = False):
+    def load(self, path: str | Path):
         """
-        Load chain data from an HDF5 file into this object.
+        Load chain data from an HDF5 file written by :meth:`save`.
 
-        Supports two formats:
-
-        - **Gibbs format** (default, ``marginal=False``): an HDF5 file written
-          by :meth:`save`, containing datasets for every global and latent
-          parameter. Both ``num_chain_samples`` and ``num_data_samples`` are
-          inferred from the shape of the stretch array ``x``.
-        - **emcee format** (``marginal=True``): an emcee ``HDFBackend`` file
-          containing only the flattened global-parameter chain (no latent
-          variables). ``num_chain_samples`` is inferred from the chain length;
-          ``num_data_samples`` is not set.
+        Both ``num_chain_samples`` and ``num_data_samples`` are inferred from
+        the shape of the stretch array ``x``.
 
         Parameters
         ----------
         path : str or Path
-            Path to the HDF5 file to read.
-        marginal : bool, optional
-            If ``True``, treat the file as an emcee backend and read only the
-            global (marginalized) hyperparameter chain. Default is ``False``.
+            Path to the HDF5 file.
 
         Returns
         -------
@@ -305,24 +294,13 @@ class GibbsChainData:
         Raises
         ------
         KeyError
-            If ``marginal=False`` but the file does not contain latent-variable
-            datasets (i.e. it is an emcee file). Use :func:`load_emcee_data` in
-            that case.
+            If the file does not contain latent-variable datasets (e.g. it is
+            an emcee backend file). Use :func:`load_emcee_data` instead.
         """
-        path = Path(path)
-        if marginal:
-            reader = HDFBackend(path, read_only = True)
-            global_params = from_param_array(reader.get_chain(flat = True).T)
-            for param in self.global_params_names:
-                setattr(self, param, global_params[param])
-            self.num_chain_samples = len(global_params['tau'])
-            self.num_data_samples = h5py.File(path).attrs.get('num_data_samples', None)
-        else:
-            with h5py.File(path, 'r') as f:
-                for param in self.latent_params_names + self.global_params_names:
-                    setattr(self, param, f[param][:])
-            self.num_chain_samples, self.num_data_samples = self.x.shape
-
+        with h5py.File(Path(path), 'r') as f:
+            for param in self.latent_params_names + self.global_params_names:
+                setattr(self, param, f[param][:])
+        self.num_chain_samples, self.num_data_samples = self.x.shape
         return self
 
     def save(self, path: str | Path):
@@ -341,6 +319,153 @@ class GibbsChainData:
         with h5py.File(Path(path), 'w') as f:
             for param in self.latent_params_names + self.global_params_names:
                 f.create_dataset(param, data = getattr(self, param))
+
+@dataclass
+class EmceeChainData:
+    """
+    Container for the output of an emcee run over the marginalised
+    Simple-BayeSN hyperparameters.
+
+    Stores only the 11 global hyperparameters; per-SN latent variables are
+    not available in the marginal sampler.  Instances are produced either
+    directly by :func:`~simplebayesn.samplers.emcee_sampler` (in-memory,
+    via :meth:`from_sampler`) or by loading a previously saved emcee backend
+    file (via :meth:`load` or :func:`load_emcee_data`).
+
+    There is no ``save`` method: the on-disk representation is always the
+    native emcee ``HDFBackend`` HDF5 file written during the run.
+
+    Parameters
+    ----------
+    num_chain_samples : int or None
+        Total number of samples across all walkers (``nwalkers * n_steps``).
+        Set automatically when the object is populated.
+    num_data_samples : int or None
+        Number of SNe Ia in the dataset used for the run.  Set automatically
+        when the object is populated.
+
+    Global hyperparameter arrays (each shape ``(num_chain_samples,)``)
+    -------------------------------------------------------------------
+    tau, RB, x0, sigmax2, c0_int, alphac_int, sigmac_int2,
+    M0_int, alpha, beta_int, sigma_int2
+
+    Attributes
+    ----------
+    sigmax : np.ndarray
+        Square root of ``sigmax2``.
+    sigmac_int : np.ndarray
+        Square root of ``sigmac_int2``.
+    sigma_int : np.ndarray
+        Square root of ``sigma_int2``.
+    global_params_names : list of str
+        Names of all 11 global hyperparameter fields.
+    """
+    num_chain_samples: int | None = None
+    num_data_samples: int | None = None
+    tau: np.ndarray | None = None
+    RB: np.ndarray | None = None
+    x0: np.ndarray | None = None
+    sigmax2: np.ndarray | None = None
+    c0_int: np.ndarray | None = None
+    alphac_int: np.ndarray | None = None
+    sigmac_int2: np.ndarray | None = None
+    M0_int: np.ndarray | None = None
+    alpha: np.ndarray | None = None
+    beta_int: np.ndarray | None = None
+    sigma_int2: np.ndarray | None = None
+
+    global_params_names = [
+        'tau', 'RB', 'x0', 'sigmax2',
+        'c0_int', 'alphac_int', 'sigmac_int2',
+        'M0_int', 'alpha', 'beta_int', 'sigma_int2'
+    ]
+
+    @property
+    def sigmax(self):
+        return np.sqrt(self.sigmax2)
+
+    @property
+    def sigmac_int(self):
+        return np.sqrt(self.sigmac_int2)
+
+    @property
+    def sigma_int(self):
+        return np.sqrt(self.sigma_int2)
+
+    def __getitem__(self, t):
+        if isinstance(t, str):
+            return getattr(self, t)
+        return {p: getattr(self, p)[t] for p in self.global_params_names}
+
+    @classmethod
+    def from_sampler(cls, sampler, num_data_samples: int | None = None):
+        """
+        Construct an ``EmceeChainData`` from a finished
+        ``emcee.EnsembleSampler``.
+
+        Reads the flat chain (all walkers concatenated) via
+        ``sampler.get_chain(flat=True)``, maps each column to its parameter
+        name using
+        :data:`~simplebayesn.utils.param_array.PARAM_KEYS` order, and
+        populates all global-parameter arrays.
+
+        Parameters
+        ----------
+        sampler : emcee.EnsembleSampler
+            A sampler that has already been run (burn-in reset and production
+            steps completed).
+        num_data_samples : int or None, optional
+            Number of SNe Ia in the dataset.  Stored as metadata but not
+            required for any computation.
+
+        Returns
+        -------
+        EmceeChainData
+            Populated instance with ``num_chain_samples`` set to
+            ``nwalkers * n_steps``.
+        """
+        global_params = from_param_array(sampler.get_chain(flat=True).T)
+        obj = cls(
+            num_data_samples=num_data_samples,
+            num_chain_samples=len(global_params['tau']),
+        )
+        for param in cls.global_params_names:
+            setattr(obj, param, global_params[param])
+        return obj
+
+    def load(self, path: str | Path):
+        """
+        Load chain data from an emcee ``HDFBackend`` file.
+
+        Reads the flat chain via ``HDFBackend.get_chain(flat=True)`` and
+        converts it to named parameter arrays using
+        :data:`~simplebayesn.utils.param_array.PARAM_KEYS` order.
+        The ``num_data_samples`` attribute is read from the file if present.
+
+        This is the only path from disk to an ``EmceeChainData`` object.
+        The on-disk format is always the native emcee backend HDF5 written
+        during the run; there is no separate save method because that file
+        already exists.
+
+        Parameters
+        ----------
+        path : str or Path
+            Path to the emcee HDF5 backend file.
+
+        Returns
+        -------
+        EmceeChainData
+            The object itself (mutated in place).
+        """
+        reader = HDFBackend(Path(path), read_only=True)
+        global_params = from_param_array(reader.get_chain(flat=True).T)
+        for param in self.global_params_names:
+            setattr(self, param, global_params[param])
+        self.num_chain_samples = len(global_params['tau'])
+        with h5py.File(Path(path), 'r') as f:
+            self.num_data_samples = f.attrs.get('num_data_samples', None)
+        return self
+
 
 def load_gibbs_data(path: str | Path):
     """
@@ -364,7 +489,7 @@ def load_gibbs_data(path: str | Path):
     ------
     ValueError
         If the file does not contain latent-variable datasets (e.g. it is an
-        emcee backend file). Use :func:`load_emcee_data` instead.
+        emcee output file). Use :func:`load_emcee_data` instead.
     """
     try:
         return GibbsChainData().load(path)
@@ -373,21 +498,19 @@ def load_gibbs_data(path: str | Path):
 
 def load_emcee_data(path: str | Path):
     """
-    Load a marginalized (globals-only) chain from an emcee HDF5 backend file.
+    Load a globals-only emcee chain from a file written by
+    :meth:`EmceeChainData.save`.
 
-    Convenience wrapper around ``GibbsChainData().load(path, marginal=True)``.
-    The file must be a valid ``emcee.backends.HDFBackend`` file. Only global
-    hyperparameters are loaded; latent per-SN arrays are not populated.
+    Convenience wrapper around ``EmceeChainData().load(path)``.
 
     Parameters
     ----------
     path : str or Path
-        Path to the emcee HDF5 backend file.
+        Path to the HDF5 file.
 
     Returns
     -------
-    GibbsChainData
-        Chain object with global parameter arrays populated and latent arrays
-        left as ``None``.
+    EmceeChainData
+        Populated chain object with all 11 global-parameter arrays.
     """
-    return GibbsChainData().load(path, marginal=True)
+    return EmceeChainData().load(path)

@@ -3,7 +3,7 @@ import emcee
 from pathlib import Path
 from ..distributions.likelihood import marginal_loglikelihood_vectorized
 from ..utils.param_array import from_param_array
-from ..utils.data import SaltData
+from ..utils.data import SaltData, EmceeChainData
 from functools import partial
 import torch
 from ..distributions.selection.mc import log_selection_prob_mc_vectorized
@@ -307,40 +307,40 @@ def emcee_sampler(
         # torch infrastructure
         device: torch.device | str = 'cuda',
         dtype: torch.dtype | str = torch.float32
-) -> emcee.EnsembleSampler:
+) -> EmceeChainData:
     """
     Run the emcee ensemble sampler with GPU-vectorised likelihood evaluation.
- 
+
     Uses emcee's ``vectorize=True`` mode so that all ``num_walkers`` proposals
     are passed to ``log_prob`` as a single ``(W, 11)`` numpy array at each
     step, evaluated in one batched GPU call, and returned as a ``(W,)`` array.
     This eliminates the W sequential Python->GPU round-trips that would arise
     from serial or multiprocessing evaluation.
- 
+
     No ``pool`` is used.  All parallelism over walkers is achieved by
     vectorising the computation across the W walker dimension simultaneously.
- 
+
     Selection correction
     --------------------
     The ``selection`` argument controls whether and how the log-posterior is
     corrected for survey selection bias:
- 
+
     ``selection=None`` (default)
         No correction.  The log-posterior is
         :func:`log_posterior_vectorized`.
- 
+
     ``selection='mc'``
         Monte Carlo correction via
         :func:`log_posterior_selection_mc_vectorized`.  Stochastic but
         memory-efficient.  Fix ``mc_seed`` to keep the log-posterior
         deterministic across calls (required by emcee).
         Requires ``clim``, ``xlim``, ``num_sim_per_sample``.
- 
+
     ``selection='grid'``
         Deterministic grid integration via
         :func:`log_posterior_selection_grid_vectorized`.  No MC noise.
         Requires ``clim``, ``xlim``, ``mlim``.
- 
+
     Computation devices
     -------------------
     The marginal likelihood is always computed on CPU (``device='cpu'``
@@ -351,14 +351,14 @@ def emcee_sampler(
     ``(W, N, 3, 3)`` small-matrix operations in the likelihood are faster
     on CPU, while the large elementwise operations in the selection
     correction benefit from GPU parallelism.
- 
+
     Burn-in handling
     ----------------
     If ``num_burnin`` is provided and ``resume=False``, the sampler runs
     ``num_burnin`` steps, resets the chain, then runs ``num_samples``
     production steps.  If ``num_burnin`` is ``None``, the full
     ``num_samples`` steps are run without a separate burn-in phase.
- 
+
     Parameters
     ----------
     num_walkers : int
@@ -400,12 +400,17 @@ def emcee_sampler(
     sn_batch_size : int, optional
         SNe per loop iteration in the grid computation.  Default is 32.
     path : str or Path or None, optional
-        path to emcee HDF5 backend for checkpointing.  If ``None``,
-        the chain is stored only in memory.
+        If provided, an emcee ``HDFBackend`` file is written here during
+        the run for checkpointing.  The same file can be passed to
+        :func:`load_emcee_data` afterwards to reconstruct an
+        ``EmceeChainData`` object, or used directly with
+        ``emcee.backends.HDFBackend`` to resume the run.  If ``None``,
+        the chain is held only in memory and returned as an
+        ``EmceeChainData`` object.
     resume : bool, optional
-        If ``True``, continue from the state stored in ``backend``;
-        ``initial_values`` and ``num_burnin`` are ignored.  Default is
-        ``False``.
+        If ``True``, continue from the state stored in the emcee backend
+        at ``path``; ``initial_values`` and ``num_burnin`` are ignored.
+        Default is ``False``.
     progress : bool, optional
         Whether to display a tqdm progress bar.  Default is ``True``.
     device : torch.device or str, optional
@@ -414,34 +419,34 @@ def emcee_sampler(
     dtype : torch.dtype, optional
         Floating-point precision for GPU computations.  Default is
         ``torch.float32``, which is significantly faster on consumer GPUs.
- 
+
     Returns
     -------
-    emcee.EnsembleSampler
-        The sampler object after the run.  Access the flattened chain via
-        ``sampler.get_chain(flat=True, discard=num_burnin)`` or via an
-        HDF5 backend.
- 
+    EmceeChainData
+        Populated chain object containing the flat (walkers × steps)
+        global-parameter arrays.  If ``path`` is provided the object is
+        also saved to disk.
+
     Raises
     ------
     ValueError
         If ``selection`` is not ``None``, ``'mc'``, or ``'grid'``; or if
         required arguments for the chosen selection method are missing.
- 
+
     Examples
     --------
     No selection correction::
- 
-        sampler = emcee_sampler(
+
+        chain = emcee_sampler(
             num_walkers=32, num_burnin=500, num_samples=5000,
             initial_values=p0,
             log_prior=uniform_marginal_log_prior,
             observed_data=data,
         )
- 
+
     MC selection correction::
- 
-        sampler = emcee_sampler(
+
+        chain = emcee_sampler(
             num_walkers=32, num_burnin=500, num_samples=5000,
             initial_values=p0,
             log_prior=uniform_marginal_log_prior,
@@ -450,10 +455,10 @@ def emcee_sampler(
             clim=(-0.2, 0.8), xlim=(-3, 3),
             num_sim_per_sample=1000,
         )
- 
+
     Grid selection correction::
- 
-        sampler = emcee_sampler(
+
+        chain = emcee_sampler(
             num_walkers=32, num_burnin=500, num_samples=5000,
             initial_values=p0,
             log_prior=uniform_marginal_log_prior,
@@ -510,15 +515,16 @@ def emcee_sampler(
 
     if path is not None:
         backend = emcee.backends.HDFBackend(Path(path))
-        with backend.open('w') as f:
-            f.attrs['num_data_samples'] = observed_data.num_samples
+        if not resume:
+            backend.reset(num_walkers, 11)
+            with backend.open('a') as f:
+                f.attrs['num_data_samples'] = observed_data.num_samples
     else:
         backend = None
 
     sampler = emcee.EnsembleSampler(
         num_walkers, 11, log_prob,
         vectorize=True,       # emcee passes (W, 11); expects (W,) back
-        #pool=None,            # no multiprocessing, GPU handles parallelism
         backend=backend,
     )
 
@@ -532,4 +538,5 @@ def emcee_sampler(
         else:
             sampler.run_mcmc(initial_values, num_samples, progress=progress)
 
-    return sampler
+    chain = EmceeChainData.from_sampler(sampler, num_data_samples=observed_data.num_samples)
+    return chain

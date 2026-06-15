@@ -98,6 +98,8 @@ simplebayesn.samplers.emcee_sampler(
 gibbs_data = simplebayesn.load_gibbs_data('output_gibbs.h5')
 # gibbs_data.tau, gibbs_data.RB, etc., or alternatively gibbs_data[1000:2000]['RB'] etc.
 emcee_data = simplebayesn.load_emcee_data('output_emcee.h5')
+# emcee_data is an EmceeChainData object — same attribute and slice access as GibbsChainData
+# emcee_sampler(...) also returns an EmceeChainData directly when used live (no path needed)
 ```
 
 ### Forward simulation
@@ -144,14 +146,63 @@ simplebayesn/
 ├── solvers/        # Maximum likelihood utilities
 └── utils/
     ├── preprocessing.py  # SALT2 → SaltData conversion
-    ├── data.py           # GibbsChainData / SaltData containers
+    ├── data.py           # GibbsChainData / EmceeChainData / SaltData containers
     ├── initialize.py     # Initial value sampling
     ├── visualize.py      # Plotting utilities
     └── intrinsic.py      # Intrinsic population utilities
 ```
 
----
+### Visualisation
 
+All plotting functions accept both `GibbsChainData` and `EmceeChainData` for
+the global-parameter plots, and `GibbsChainData` only for the latent-variable
+diagnostic plots.
+
+```python
+burn_in = 10_000
+
+# Single-chain corner plot (works with Gibbs or emcee output)
+simplebayesn.visualize.posterior_cornerplot(
+    gibbs_data,
+    start_idx=burn_in,
+    params_to_plot=['tau', 'RB', 'sigma_int', 'sigmac_int'],
+    title='Gibbs posterior'
+)
+
+# Same call with emcee output — no changes needed
+simplebayesn.visualize.posterior_cornerplot(
+    emcee_data,
+    start_idx=burn_in,
+    params_to_plot=['tau', 'RB', 'sigma_int', 'sigmac_int'],
+    title='emcee posterior'
+)
+
+# Overlay Gibbs and emcee posteriors on the same figure
+simplebayesn.visualize.compare_posterior_cornerplots(
+    chains=[gibbs_data, emcee_data],
+    start_idx=burn_in,
+    labels=['Gibbs', 'emcee'],
+    params_to_plot=['tau', 'RB', 'sigma_int', 'sigmac_int'],
+)
+
+# Trace plot and marginal posterior for a single parameter
+simplebayesn.visualize.trace_plot(gibbs_data, 'tau', start_idx=burn_in)
+simplebayesn.visualize.marginal_posterior(emcee_data, 'RB', start_idx=burn_in, kind='kde')
+
+# Corner plot with ground-truth overlay (e.g. from a simulation)
+simplebayesn.visualize.posterior_cornerplot(
+    gibbs_data,
+    start_idx=burn_in,
+    truth_dict=true_params,
+    title='Validation'
+)
+```
+
+The latent-variable diagnostic plots (`intrinsic_magnitude_color_distribution_*`,
+`extinguished_magnitude_color_distribution_*`, `plot_latent_bias`) require a
+`GibbsChainData` with latent arrays and are not available for emcee chains.
+
+---
 ## Citation
 
 If you use this code, please cite:

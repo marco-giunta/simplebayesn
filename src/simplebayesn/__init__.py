@@ -21,7 +21,7 @@ __all__ = [
     'solvers',
     'preprocess_data',
     'load_gibbs_data',
-    'load_emcee_data'
+    'load_emcee_data',
 ]
 
 from importlib.metadata import version
