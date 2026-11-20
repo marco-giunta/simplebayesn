@@ -257,9 +257,7 @@ class GibbsChainData:
         if isinstance(t, str):
             return getattr(self, t)
         
-        all_latents_exist = all([getattr(self, lp) is not None for lp in self.latent_params_names])
-        return {gp: getattr(self, gp)[t] for gp in self.global_params_names} | \
-               {lp: getattr(self, lp)[t] if all_latents_exist else None for lp in self.latent_params_names}
+        return {p: getattr(self, p)[t] for p in self.global_params_names + self.latent_params_names}
 
     @property
     def sigmax(self):
